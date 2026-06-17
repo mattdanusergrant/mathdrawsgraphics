@@ -414,7 +414,7 @@ const cy = h / 2 + Math.sin(t * 1.7) * h * 0.012;
 ctx.lineCap = 'butt';
 ctx.lineJoin = 'miter';
 
-ctx.strokeStyle = 'hsla(210, 50%, 45%, 0.18)';
+ctx.strokeStyle = 'hsla(0, 0%, 45%, 0.18)';
 ctx.lineWidth = 1;
 ctx.beginPath();
 ctx.moveTo(0, 0); ctx.lineTo(cx, cy);
@@ -428,10 +428,8 @@ for (let i = N; i >= 1; i--) {
   const s = focal / z;
   const hw = 0.26 * s, hh = 0.42 * s;
   if (hw < 0.4) continue;
-  const hue   = (march * 40 + z * 14) % 360;
-  const light = Math.max(10, 64 - z * 6);
   const alpha = Math.min(1, Math.max(0.05, 1.2 - z / N));
-  ctx.strokeStyle = \`hsla(\${hue}, 85%, \${light}%, \${alpha})\`;
+  ctx.strokeStyle = \`hsla(0, 0%, 100%, \${alpha})\`;   // white lines; depth still reads via the fade
   ctx.lineWidth = Math.min(16, Math.max(0.8, 7 / z));
   doorway(cx, cy, hw, hh);
 }
