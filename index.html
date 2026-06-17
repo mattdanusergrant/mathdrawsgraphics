@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Math Draws Graphics · MDG</title>
+<style>
+  :root{
+    --bg:#07070d; --panel:#10101a; --panel2:#171724; --line:#26263a;
+    --text:#e9e9f4; --muted:#9595ad; --accent:#7df9ff; --accent2:#ff5dd8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%}
+  body{
+    font:14px/1.4 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    color:var(--text); background:var(--bg); overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .app{display:flex; height:100dvh}
+  .stage{flex:1; position:relative; background:var(--bg); min-width:0}
+  canvas{display:block; width:100%; height:100%; touch-action:none}
+  .wordmark{
+    position:absolute; top:14px; left:18px; font-weight:700; letter-spacing:.5px;
+    font-size:15px; pointer-events:none; user-select:none;
+    background:linear-gradient(90deg,var(--accent),var(--accent2));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .wordmark small{display:block; font-size:10px; letter-spacing:2px; color:var(--muted);
+    -webkit-text-fill-color:var(--muted); font-weight:600}
+
+  .panel{
+    width:308px; flex:none; background:var(--panel); border-left:1px solid var(--line);
+    display:flex; flex-direction:column; overflow-y:auto;
+  }
+  .head{padding:16px 16px 12px; border-bottom:1px solid var(--line)}
+  .actions{display:flex; gap:8px}
+  .actions button{flex:1}
+  button{
+    font:inherit; font-weight:600; color:var(--text); cursor:pointer;
+    background:var(--panel2); border:1px solid var(--line); border-radius:9px;
+    padding:9px 10px; transition:.12s;
+  }
+  button:hover{border-color:var(--accent); color:var(--accent)}
+  button:active{transform:translateY(1px)}
+  button.go{background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#05050a; border:none}
+  button.go:hover{filter:brightness(1.08); color:#05050a}
+  button.mini{background:transparent; border:none; color:var(--muted); font-size:11.5px; padding:6px 2px 0; text-align:left}
+  button.mini:hover{color:var(--accent); border:none}
+
+  .tabs{display:grid; grid-template-columns:1fr 1fr; gap:6px; padding:12px 16px}
+  .tabs button{padding:8px 6px; font-size:13px}
+  .tabs button.on{background:var(--accent); color:#05050a; border-color:var(--accent)}
+
+  .section{padding:6px 16px 14px}
+  .section h3{
+    font-size:10.5px; letter-spacing:1.6px; text-transform:uppercase; color:var(--muted);
+    margin:12px 0 8px; font-weight:700;
+  }
+  .ctrl{margin:11px 0}
+  .ctrl label{display:flex; justify-content:space-between; align-items:baseline; color:var(--muted); margin-bottom:5px}
+  .ctrl .val{color:var(--text); font-variant-numeric:tabular-nums; font-weight:600}
+  input[type=range]{width:100%; accent-color:var(--accent); cursor:pointer}
+  input[type=color]{
+    width:100%; height:34px; background:var(--panel2); border:1px solid var(--line);
+    border-radius:8px; cursor:pointer; padding:3px;
+  }
+  .row{display:flex; gap:10px}
+  .row>*{flex:1}
+
+  .seg{display:flex; background:var(--panel2); border:1px solid var(--line); border-radius:9px; overflow:hidden}
+  .seg button{flex:1; border:none; border-radius:0; background:transparent; padding:8px 4px; font-size:12.5px; font-weight:600}
+  .seg button.on{background:var(--accent); color:#05050a}
+  .seg button:hover:not(.on){color:var(--accent)}
+
+  .toggle{display:flex; align-items:center; justify-content:space-between; padding:8px 0; color:var(--muted)}
+  .toggle input{width:18px; height:18px; accent-color:var(--accent); cursor:pointer}
+  .toggle span{color:var(--text); font-weight:600}
+
+  .codehint{color:var(--muted); font-size:11px; margin-bottom:8px; line-height:1.5}
+  textarea#code{
+    width:100%; min-height:240px; resize:vertical; tab-size:2;
+    background:#0c0c16; color:#cfe9ff; border:1px solid var(--line); border-radius:9px;
+    padding:10px; font:12.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; white-space:pre;
+  }
+  textarea#code:focus{outline:none; border-color:var(--accent)}
+  .err{color:#ff8a8a; font-size:11.5px; margin-top:7px; min-height:14px; font-family:ui-monospace,monospace; white-space:pre-wrap}
+  .exrow{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:8px}
+  .exrow .exlabel{color:var(--muted); font-size:11px; margin-right:2px}
+  .exrow button{background:var(--panel2); border:1px solid var(--line); border-radius:7px; color:var(--text); font-size:11.5px; padding:4px 9px; cursor:pointer}
+  .exrow button:hover{border-color:var(--accent); color:var(--accent)}
+
+  .hint{padding:12px 16px 18px; color:var(--muted); font-size:11.5px; line-height:1.6; border-top:1px solid var(--line)}
+  .hint b{color:var(--text); font-weight:600}
+  kbd{background:var(--panel2); border:1px solid var(--line); border-bottom-width:2px; border-radius:5px;
+    padding:1px 5px; font:inherit; font-size:11px; color:var(--text)}
+
+  @media (max-width:820px){
+    .app{flex-direction:column}
+    .stage{height:52vh}
+    .panel{width:auto; height:48vh; border-left:none; border-top:1px solid var(--line)}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage">
+    <canvas id="c"></canvas>
+    <div class="wordmark">MDG<small>MATH DRAWS GRAPHICS</small></div>
+  </div>
+
+  <aside class="panel">
+    <div class="head">
+      <div class="actions">
+        <button class="go" id="rand">🎲 Surprise</button>
+        <button id="replay" title="Re-draw (Space)">▶ Replay</button>
+      </div>
+      <div class="actions" style="margin-top:8px">
+        <button id="save" title="Save PNG (S)">⬇ PNG</button>
+        <button id="saveSvg" title="Save SVG (V)">⬇ SVG</button>
+      </div>
+    </div>
+
+    <div class="tabs" id="tabs"></div>
+
+    <div class="section">
+      <h3>Shape</h3>
+      <div id="params"></div>
+    </div>
+
+    <div class="section" id="colourSection">
+      <h3>Colour</h3>
+      <div class="seg" id="pal">
+        <button data-pal="solid">Solid</button>
+        <button data-pal="gradient">Gradient</button>
+      </div>
+      <div class="row" style="margin-top:11px">
+        <div><label class="val" style="color:var(--muted);font-size:12px">Line A</label><input type="color" id="c1"></div>
+        <div><label class="val" style="color:var(--muted);font-size:12px">Line B</label><input type="color" id="c2"></div>
+      </div>
+      <div class="ctrl" style="margin-top:11px">
+        <label>Background <span class="val">&nbsp;</span></label><input type="color" id="bg">
+      </div>
+      <div class="ctrl"><label>Line width <span class="val" id="wv"></span></label><input type="range" id="w" min="0.4" max="6" step="0.1"></div>
+      <div class="ctrl"><label>Opacity <span class="val" id="opv"></span></label><input type="range" id="op" min="0.1" max="1" step="0.05"></div>
+      <div class="toggle"><span>Neon glow</span><input type="checkbox" id="neon"></div>
+    </div>
+
+    <div class="section">
+      <h3>Motion</h3>
+      <div class="toggle"><span>Animate</span><input type="checkbox" id="animate"></div>
+      <div class="toggle"><span>Trails</span><input type="checkbox" id="trails"></div>
+      <div class="ctrl"><label>Draw speed <span class="val" id="dsv"></span></label><input type="range" id="ds" min="0.2" max="4" step="0.1"></div>
+      <div class="ctrl"><label>Evolve speed <span class="val" id="esv"></span></label><input type="range" id="es" min="0" max="2" step="0.05"></div>
+    </div>
+
+    <div class="hint">
+      <b>Keys:</b> <kbd>Space</kbd> replay · <kbd>R</kbd> surprise · <kbd>S</kbd> PNG · <kbd>V</kbd> SVG · <kbd>A</kbd> animate
+    </div>
+  </aside>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const el = (t,c) => { const e = document.createElement(t); if(c) e.className = c; return e; };
+const clamp = (v,a,b) => v < a ? a : v > b ? b : v;
+const gcd = (a,b) => { a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a||1; };
+function hexA(h,a){ const n=parseInt(h.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function hx(h){ const n=parseInt(h.slice(1),16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function hexLerp(a,b,f){ const p=hx(a),q=hx(b); return `rgb(${Math.round(p[0]+(q[0]-p[0])*f)},${Math.round(p[1]+(q[1]-p[1])*f)},${Math.round(p[2]+(q[2]-p[2])*f)})`; }
+function hslHex(h,s,l){ s/=100; l/=100; const k=n=>(n+h/30)%12; const a=s*Math.min(l,1-l);
+  const f=n=>l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1)); const to=x=>Math.round(255*x).toString(16).padStart(2,'0');
+  return `#${to(f(0))}${to(f(8))}${to(f(4))}`; }
+const randHue = () => hslHex(Math.floor(Math.random()*360),85,60);
+
+/* ---- generators: each returns a polyline (poly) or list of chords (lines) ---- */
+const MODES = {
+  spiro: {
+    label:'Spirograph',
+    controls:[
+      {k:'R',   label:'Ring teeth',   min:20, max:160, step:1, def:90, int:true},
+      {k:'r',   label:'Wheel teeth',  min:5,  max:120, step:1, def:54, int:true},
+      {k:'pen', label:'Pen position', min:0.05, max:1, step:0.01, def:0.9},
+    ],
+    build(p,ph,R){
+      const Rt=p.R, rt=p.r, rev=Math.min(40,Math.max(1,Math.round(rt/gcd(Rt,rt))));
+      const tMax=2*Math.PI*rev, Rr=Rt-rt;
+      const dd=clamp(p.pen+0.1*Math.sin(ph*0.7),0.02,1.2)*rt;
+      const scale=R/((Math.abs(Rr)+dd)||1);
+      const segs=Math.min(3000,Math.max(240,rev*160));
+      const rot=ph*0.3, cr=Math.cos(rot), sr=Math.sin(rot), pts=[];
+      for(let i=0;i<=segs;i++){
+        const t=tMax*i/segs;
+        const x=(Rr*Math.cos(t)+dd*Math.cos(Rr/rt*t))*scale;
+        const y=(Rr*Math.sin(t)-dd*Math.sin(Rr/rt*t))*scale;
+        pts.push({x:x*cr-y*sr,y:x*sr+y*cr});
+      }
+      return {type:'poly',pts};
+    }
+  },
+  harmono: {
+    label:'Harmonograph',
+    controls:[
+      {k:'fx',     label:'X frequency', min:1, max:10, step:0.01, def:3},
+      {k:'fy',     label:'Y frequency', min:1, max:10, step:0.01, def:2},
+      {k:'detune', label:'Detune',      min:0, max:0.5, step:0.001, def:0.02},
+      {k:'damp',   label:'Damping',     min:0, max:0.06, step:0.001, def:0.012},
+      {k:'cycles', label:'Length',      min:4, max:60, step:1, def:24, int:true},
+    ],
+    build(p,ph,R){
+      const f1=p.fx, f2=p.fx+p.detune, f3=p.fy, f4=p.fy+p.detune, dec=p.damp;
+      const tMax=2*Math.PI*p.cycles, segs=Math.min(4200,Math.max(400,Math.round(p.cycles*150)));
+      const pX=ph*0.5, pY=Math.PI/2, pts=[];
+      for(let i=0;i<=segs;i++){
+        const t=tMax*i/segs, e=Math.exp(-dec*t);
+        pts.push({
+          x:(Math.sin(f1*t+pX)+Math.sin(f2*t))*0.5*e*R,
+          y:(Math.sin(f3*t+pY)+Math.sin(f4*t))*0.5*e*R
+        });
+      }
+      return {type:'poly',pts};
+    }
+  },
+  rose: {
+    label:'Rose',
+    controls:[
+      {k:'n',   label:'Petal n',  min:1, max:24, step:1, def:5, int:true},
+      {k:'d',   label:'Petal d',  min:1, max:24, step:1, def:4, int:true},
+      {k:'amp', label:'Fullness', min:0.2, max:1, step:0.01, def:1},
+    ],
+    build(p,ph,R){
+      const k=p.n/p.d, tMax=2*Math.PI*p.d, segs=Math.min(5200,Math.max(600,Math.round(p.d*360)));
+      const amp=p.amp*R, ps=ph*0.5, rot=ph*0.2, cr=Math.cos(rot), sr=Math.sin(rot), pts=[];
+      for(let i=0;i<=segs;i++){
+        const th=tMax*i/segs, rr=Math.cos(k*th+ps)*amp;
+        const x=rr*Math.cos(th), y=rr*Math.sin(th);
+        pts.push({x:x*cr-y*sr,y:x*sr+y*cr});
+      }
+      return {type:'poly',pts};
+    }
+  },
+  string: {
+    label:'String Art',
+    controls:[
+      {k:'N',    label:'Points',     min:12, max:360, step:1, def:200, int:true},
+      {k:'mult', label:'Multiplier', min:2,  max:120, step:0.01, def:2},
+    ],
+    build(p,ph,R){
+      const N=Math.round(p.N), m=p.mult+ph*0.12, segs=[];
+      for(let i=0;i<N;i++){
+        const a=2*Math.PI*i/N-Math.PI/2, j=(i*m)%N, b=2*Math.PI*j/N-Math.PI/2;
+        segs.push([{x:Math.cos(a)*R,y:Math.sin(a)*R},{x:Math.cos(b)*R,y:Math.sin(b)*R}]);
+      }
+      return {type:'lines',segs};
+    }
+  }
+};
+
+/* ---- state ---- */
+let mode='code';
+const store={};
+for(const m in MODES){ store[m]={}; MODES[m].controls.forEach(c=>store[m][c.k]=c.def); }
+let params=store.spiro;
+const style={ palette:'gradient', color1:'#7df9ff', color2:'#ff5dd8', bg:'#0a0a14',
+  width:1.6, opacity:0.9, neon:true, trails:false };
+const anim={ animate:true, drawSpeed:1.4, evolveSpeed:0.45, progress:0, phase:0, drawing:true };
+
+/* ---- code-sketch mode ---- */
+const SIDE_DOORS_SKETCH =
+`// Side Doors — a corridor with passages branching off the side walls.
+// Animate ON; try Trails. ctx, w, h, t, TAU.
+
+const N = 22, speed = 0.55, focal = Math.min(w, h) * 0.62, march = t * speed;
+const cx = w / 2 + Math.sin(t * 0.9) * w * 0.015;
+const cy = h / 2 + Math.sin(t * 1.7) * h * 0.010;
+const WX = 0.26, HY = 0.42;            // corridor half width / height (world)
+
+ctx.lineCap = 'butt';
+ctx.lineJoin = 'miter';
+
+ctx.strokeStyle = 'hsla(210, 50%, 45%, 0.16)';
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(0, 0); ctx.lineTo(cx, cy);
+ctx.moveTo(w, 0); ctx.lineTo(cx, cy);
+ctx.moveTo(0, h); ctx.lineTo(cx, cy);
+ctx.moveTo(w, h); ctx.lineTo(cx, cy);
+ctx.stroke();
+
+for (let i = N; i >= 1; i--) {
+  const z = i - (march % 1);
+  const s = focal / z;
+  if (WX * s < 0.4) continue;
+  const hue = (march * 40 + z * 16) % 360;
+  const light = Math.max(10, 64 - z * 6);
+  const alpha = Math.min(1, Math.max(0.05, 1.2 - z / N));
+  ctx.lineWidth = Math.min(15, Math.max(0.8, 6.5 / z));
+
+  // a passage opening in a side wall every 3rd layer, alternating sides
+  if (i % 3 === 0) {
+    const side = (i % 6 === 0) ? -1 : 1;
+    const z2 = z + 0.85, s2 = focal / z2;
+    const x1 = cx + side * WX * s,  x2 = cx + side * WX * s2;
+    const o1 = 0.30 * s, o2 = 0.30 * s2;
+    ctx.strokeStyle = \`hsla(\${(hue + 40) % 360}, 90%, \${light + 6}%, \${alpha})\`;
+    ctx.beginPath();
+    ctx.moveTo(x1, cy - o1); ctx.lineTo(x1, cy + o1);
+    ctx.lineTo(x2, cy + o2); ctx.lineTo(x2, cy - o2);
+    ctx.closePath(); ctx.stroke();
+  }
+
+  // main corridor doorway
+  ctx.strokeStyle = \`hsla(\${hue}, 85%, \${light}%, \${alpha})\`;
+  const hw = WX * s, hh = HY * s, top = cy - hh, bot = cy + hh;
+  ctx.beginPath();
+  ctx.moveTo(cx - hw, bot); ctx.lineTo(cx - hw, top);
+  ctx.lineTo(cx + hw, top); ctx.lineTo(cx + hw, bot);
+  ctx.stroke();
+}`;
+const TURNING_HALL_SKETCH =
+`// Turning Hall — the corridor curves as you walk down it.
+// Animate ON; try Trails. ctx, w, h, t, TAU.
+
+const N = 22, speed = 0.5, focal = Math.min(w, h) * 0.62, march = t * speed;
+const cy = h / 2 + Math.sin(t * 1.4) * h * 0.010;
+const WX = 0.26, HY = 0.42;
+
+ctx.lineCap = 'butt';
+ctx.lineJoin = 'miter';
+
+for (let i = N; i >= 1; i--) {
+  const z = i - (march % 1);
+  const s = focal / z;
+  if (WX * s < 0.4) continue;
+  // curving centre-line: far doors hold the vanishing point, near doors swing;
+  // the wave travels toward you over time so you keep rounding the bend
+  const bend = Math.sin(z * 0.45 - t * 0.9) * w * 0.16 * (1 - z / (N + 3));
+  const dx = w / 2 + bend;
+  const hue = (march * 45 + z * 14) % 360;
+  const light = Math.max(10, 64 - z * 6);
+  const alpha = Math.min(1, Math.max(0.05, 1.2 - z / N));
+  ctx.strokeStyle = \`hsla(\${hue}, 85%, \${light}%, \${alpha})\`;
+  ctx.lineWidth = Math.min(15, Math.max(0.8, 6.5 / z));
+  const hw = WX * s, hh = HY * s, top = cy - hh, bot = cy + hh;
+  ctx.beginPath();
+  ctx.moveTo(dx - hw, bot); ctx.lineTo(dx - hw, top);
+  ctx.lineTo(dx + hw, top); ctx.lineTo(dx + hw, bot);
+  ctx.stroke();
+}`;
+const SWINGING_DOORS_SKETCH =
+`// Swinging Doors — each door hinges open as you reach it.
+// Animate ON; try Trails. ctx, w, h, t, TAU.
+
+const N = 20, speed = 0.5, focal = Math.min(w, h) * 0.62, march = t * speed;
+const cx = w / 2, cy = h / 2;
+const WX = 0.28, HY = 0.44;
+
+ctx.lineCap = 'butt';
+ctx.lineJoin = 'miter';
+
+for (let i = N; i >= 1; i--) {
+  const z = i - (march % 1);
+  const s = focal / z;
+  if (WX * s < 0.4) continue;
+  const hw = WX * s, hh = HY * s, top = cy - hh, bot = cy + hh;
+  const hue = (march * 40 + z * 15) % 360;
+  const light = Math.max(12, 66 - z * 6);
+  const alpha = Math.min(1, Math.max(0.06, 1.2 - z / N));
+
+  // openness ramps up as the door nears the camera
+  const open = Math.min(1, Math.max(0, (6 - z) / 6));
+  const theta = open * (Math.PI / 2) * 0.95;
+  const hingeX = cx - hw;
+  const freeX = hingeX + (2 * hw) * Math.cos(theta);
+  const tilt = hh * 0.06 * open;
+
+  // filled leaf (so a closed door occludes what's behind it)
+  ctx.fillStyle = \`hsla(\${hue}, 70%, \${Math.max(8, light - 22)}%, \${0.85 * alpha})\`;
+  ctx.beginPath();
+  ctx.moveTo(hingeX, top);
+  ctx.lineTo(freeX, top - tilt);
+  ctx.lineTo(freeX, bot + tilt);
+  ctx.lineTo(hingeX, bot);
+  ctx.closePath(); ctx.fill();
+
+  // door frame
+  ctx.strokeStyle = \`hsla(\${hue}, 88%, \${light}%, \${alpha})\`;
+  ctx.lineWidth = Math.min(15, Math.max(0.8, 6.5 / z));
+  ctx.beginPath();
+  ctx.moveTo(cx - hw, bot); ctx.lineTo(cx - hw, top);
+  ctx.lineTo(cx + hw, top); ctx.lineTo(cx + hw, bot);
+  ctx.stroke();
+
+  // the swinging leaf's free edge
+  ctx.strokeStyle = \`hsla(\${(hue + 30) % 360}, 90%, \${light + 8}%, \${alpha})\`;
+  ctx.lineWidth = Math.min(8, Math.max(0.6, 4 / z));
+  ctx.beginPath();
+  ctx.moveTo(freeX, top - tilt); ctx.lineTo(freeX, bot + tilt);
+  ctx.stroke();
+}`;
+const WALK_SKETCH =
+`// Walk Through Doors — first-person POV down an endless corridor.
+// ARCHED = false -> squared corners; true -> round arches. Animate ON; try Trails.
+
+const ARCHED = false;
+const N      = 22;
+const speed  = 0.55;
+const focal  = Math.min(w, h) * 0.62;
+const march  = t * speed;
+
+const cx = w / 2 + Math.sin(t * 0.9) * w * 0.018;
+const cy = h / 2 + Math.sin(t * 1.7) * h * 0.012;
+
+ctx.lineCap = 'butt';
+ctx.lineJoin = 'miter';
+
+ctx.strokeStyle = 'hsla(210, 50%, 45%, 0.18)';
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(0, 0); ctx.lineTo(cx, cy);
+ctx.moveTo(w, 0); ctx.lineTo(cx, cy);
+ctx.moveTo(0, h); ctx.lineTo(cx, cy);
+ctx.moveTo(w, h); ctx.lineTo(cx, cy);
+ctx.stroke();
+
+for (let i = N; i >= 1; i--) {
+  const z = i - (march % 1);
+  const s = focal / z;
+  const hw = 0.26 * s, hh = 0.42 * s;
+  if (hw < 0.4) continue;
+  const hue   = (march * 40 + z * 14) % 360;
+  const light = Math.max(10, 64 - z * 6);
+  const alpha = Math.min(1, Math.max(0.05, 1.2 - z / N));
+  ctx.strokeStyle = \`hsla(\${hue}, 85%, \${light}%, \${alpha})\`;
+  ctx.lineWidth = Math.min(16, Math.max(0.8, 7 / z));
+  doorway(cx, cy, hw, hh);
+}
+
+function doorway(cx, cy, hw, hh) {
+  const top = cy - hh, bot = cy + hh;
+  ctx.beginPath();
+  if (ARCHED) {
+    const sp = top + Math.min(hw, hh * 0.5);
+    ctx.moveTo(cx - hw, bot); ctx.lineTo(cx - hw, sp);
+    ctx.quadraticCurveTo(cx - hw, top, cx, top);
+    ctx.quadraticCurveTo(cx + hw, top, cx + hw, sp);
+    ctx.lineTo(cx + hw, bot);
+  } else {
+    ctx.moveTo(cx - hw, bot);
+    ctx.lineTo(cx - hw, top);
+    ctx.lineTo(cx + hw, top);
+    ctx.lineTo(cx + hw, bot);
+  }
+  ctx.stroke();
+}`;
+const SKETCHES = [
+  { name: 'Doors',          code: WALK_SKETCH },
+  { name: 'Side Doors',     code: SIDE_DOORS_SKETCH },
+  { name: 'Turning Hall',   code: TURNING_HALL_SKETCH },
+  { name: 'Swinging Doors', code: SWINGING_DOORS_SKETCH },
+];
+const CODE_KEY='spiroloom.sketch';
+let codeText = (function(){ try{ return localStorage.getItem(CODE_KEY) || WALK_SKETCH; }catch(e){ return WALK_SKETCH; } })(), codeFn = null;
+function saveSketch(){ try{ localStorage.setItem(CODE_KEY, codeText); }catch(e){} }
+function compileCode(){
+  try { codeFn = new Function('ctx','w','h','t','TAU', codeText); setCodeErr(''); }
+  catch(e){ setCodeErr('Syntax: ' + e.message); }
+}
+function setCodeErr(msg){ const e=$('#err'); if(e) e.textContent=msg; }
+function buildEditor(box){
+  const hint=el('div','codehint'); hint.textContent='Live JS sketch — pick an example or write your own (ctx, w, h, t, TAU). Auto-saved; errors below.';
+  const ta=el('textarea'); ta.id='code'; ta.value=codeText; ta.spellcheck=false;
+  ta.addEventListener('input',()=>{ codeText=ta.value; saveSketch(); compileCode(); dirty=true; });
+  ta.addEventListener('keydown',e=>{
+    if(e.key==='Tab'){ e.preventDefault(); const s=ta.selectionStart, en=ta.selectionEnd;
+      ta.value=ta.value.slice(0,s)+'  '+ta.value.slice(en); ta.selectionStart=ta.selectionEnd=s+2;
+      codeText=ta.value; saveSketch(); compileCode(); dirty=true; }
+  });
+  const exrow=el('div','exrow'); const lab=el('span','exlabel'); lab.textContent='Examples:'; exrow.append(lab);
+  SKETCHES.forEach(sk=>{
+    const b=el('button'); b.textContent=sk.name;
+    b.onclick=()=>{
+      if(!SKETCHES.some(x=>x.code===codeText) && !confirm('Load "'+sk.name+'"? This replaces your current sketch.')) return;
+      codeText=sk.code; ta.value=codeText; saveSketch(); compileCode(); dirty=true;
+    };
+    exrow.append(b);
+  });
+  const err=el('div','err'); err.id='err';
+  box.append(hint,exrow,ta,err); setCodeErr('');
+}
+
+/* ---- canvas ---- */
+const cv=$('#c'), ctx=cv.getContext('2d'), stage=$('.stage');
+let dpr=1, stageR=0, dirty=true;
+function resize(){
+  const r=stage.getBoundingClientRect();
+  dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=Math.max(1,Math.round(r.width*dpr));
+  cv.height=Math.max(1,Math.round(r.height*dpr));
+  cv.style.width=r.width+'px'; cv.style.height=r.height+'px';
+  dirty=true; triggerDraw();
+}
+new ResizeObserver(resize).observe(stage);
+
+/* ---- render ---- */
+function render(){
+  const w=cv.width/dpr, h=cv.height/dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1; ctx.shadowBlur=0;
+  ctx.fillStyle = (style.trails && anim.animate) ? hexA(style.bg,0.12) : style.bg;
+  ctx.fillRect(0,0,w,h);
+  if(mode==='code'){
+    if(codeFn){
+      ctx.save();
+      ctx.lineWidth=2; ctx.lineJoin='round'; ctx.lineCap='round';
+      ctx.strokeStyle='#cfe9ff'; ctx.fillStyle='#cfe9ff';
+      try{ codeFn(ctx,w,h,anim.phase,Math.PI*2); }
+      catch(e){ setCodeErr('Runtime: '+e.message); }
+      ctx.restore();
+    }
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return;
+  }
+  stageR=Math.min(w,h)*0.42;
+  ctx.translate(w/2,h/2);
+  drawData(MODES[mode].build(params,anim.phase,stageR));
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function drawData(d){
+  ctx.lineWidth=style.width; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.globalAlpha=style.opacity;
+  if(style.neon){ ctx.globalCompositeOperation='lighter'; ctx.shadowBlur=style.width*3.4; }
+  else { ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0; }
+  if(d.type==='poly'){
+    const pts=d.pts, total=pts.length-1, count=Math.max(1,Math.floor(total*anim.progress));
+    if(style.palette==='gradient'){
+      const g=ctx.createLinearGradient(-stageR,-stageR,stageR,stageR);
+      g.addColorStop(0,style.color1); g.addColorStop(1,style.color2); ctx.strokeStyle=g;
+    } else ctx.strokeStyle=style.color1;
+    if(style.neon) ctx.shadowColor=style.color1;
+    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<=count;i++) ctx.lineTo(pts[i].x,pts[i].y);
+    ctx.stroke();
+  } else {
+    const segs=d.segs, total=segs.length, count=Math.max(1,Math.floor(total*anim.progress));
+    for(let i=0;i<count;i++){
+      const s=segs[i];
+      if(style.palette==='gradient'){ ctx.strokeStyle=hexLerp(style.color1,style.color2,i/total); if(style.neon) ctx.shadowColor=ctx.strokeStyle; }
+      else { ctx.strokeStyle=style.color1; if(style.neon) ctx.shadowColor=style.color1; }
+      ctx.beginPath(); ctx.moveTo(s[0].x,s[0].y); ctx.lineTo(s[1].x,s[1].y); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
+}
+
+/* ---- loop ---- */
+let lastT=0;
+function loop(now){
+  if(!lastT) lastT=now;
+  const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
+  let active=false;
+  if(anim.drawing){ anim.progress+=anim.drawSpeed*dt; if(anim.progress>=1){ anim.progress=1; anim.drawing=false; } active=true; }
+  if(anim.animate){ anim.phase+=anim.evolveSpeed*dt; active=true; }
+  if(active||dirty){ render(); dirty=false; }
+  requestAnimationFrame(loop);
+}
+function triggerDraw(){ anim.progress=0; anim.drawing=true; }
+
+/* ---- actions ---- */
+function randomize(){
+  if(mode==='code') return;
+  MODES[mode].controls.forEach(c=>{ let v=c.min+Math.random()*(c.max-c.min); if(c.int) v=Math.round(v); params[c.k]=v; });
+  if(mode==='spiro' && params.r===params.R) params.r=Math.max(5,params.R-7);
+  style.palette=['solid','gradient'][Math.floor(Math.random()*2)];
+  style.color1=randHue(); style.color2=randHue();
+  syncStatic(); buildParams(); triggerDraw();
+}
+function savePNG(){
+  const wasDrawing=anim.drawing, p=anim.progress;
+  anim.progress=1; anim.drawing=false; render();
+  const a=el('a'); a.href=cv.toDataURL('image/png'); a.download=`mdg-${mode}-${Date.now()}.png`; a.click();
+  anim.progress=p; anim.drawing=wasDrawing; dirty=true;
+}
+
+/* ---- SVG export ---- */
+const F=n=>Math.round(n*100)/100;
+function svgDoc(w,h,bg,defs,body){
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`
+    +`<rect width="${w}" height="${h}" fill="${bg}"/>`+(defs?`<defs>${defs}</defs>`:'')+body+`</svg>`;
+}
+function makeSVGRecorder(){
+  const els=[], defs=[], stack=[]; let gid=0, d='';
+  let st={ stroke:'#cfe9ff', fill:'#cfe9ff', width:2, cap:'round', join:'round', alpha:1 };
+  function colorRef(c){
+    if(c && c.__grad){ const id='g'+(gid++);
+      defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${F(c.x0)}" y1="${F(c.y0)}" x2="${F(c.x1)}" y2="${F(c.y1)}">`+c.stops.map(s=>`<stop offset="${s.o}" stop-color="${s.c}"/>`).join('')+`</linearGradient>`);
+      return `url(#${id})`; }
+    return c;
+  }
+  const ctx={
+    save(){ stack.push({...st}); }, restore(){ if(stack.length) st=stack.pop(); },
+    beginPath(){ d=''; }, closePath(){ d+='Z'; },
+    moveTo(x,y){ d+=`M${F(x)} ${F(y)}`; }, lineTo(x,y){ d+=(d?'L':'M')+`${F(x)} ${F(y)}`; },
+    quadraticCurveTo(cx,cy,x,y){ d+=`Q${F(cx)} ${F(cy)} ${F(x)} ${F(y)}`; },
+    bezierCurveTo(a,b,c,e,x,y){ d+=`C${F(a)} ${F(b)} ${F(c)} ${F(e)} ${F(x)} ${F(y)}`; },
+    arc(cx,cy,r,a0,a1){ const T=Math.PI*2, da=a1-a0, x0=cx+r*Math.cos(a0), y0=cy+r*Math.sin(a0);
+      if(Math.abs(da)>=T-1e-6){ const xm=cx-r*Math.cos(a0), ym=cy-r*Math.sin(a0);
+        d+=(d?'L':'M')+`${F(x0)} ${F(y0)}A${F(r)} ${F(r)} 0 1 1 ${F(xm)} ${F(ym)}A${F(r)} ${F(r)} 0 1 1 ${F(x0)} ${F(y0)}`; }
+      else { const x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1), large=Math.abs(da)>Math.PI?1:0, sweep=da>0?1:0;
+        d+=(d?'L':'M')+`${F(x0)} ${F(y0)}A${F(r)} ${F(r)} 0 ${large} ${sweep} ${F(x1)} ${F(y1)}`; }
+    },
+    rect(x,y,w,h){ d+=`M${F(x)} ${F(y)}h${F(w)}v${F(h)}h${F(-w)}Z`; },
+    stroke(){ if(d) els.push(`<path d="${d}" fill="none" stroke="${colorRef(st.stroke)}" stroke-width="${F(st.width)}" stroke-linecap="${st.cap}" stroke-linejoin="${st.join}"${st.alpha<1?` stroke-opacity="${st.alpha}"`:''}/>`); },
+    fill(){ if(d) els.push(`<path d="${d}" fill="${colorRef(st.fill)}"${st.alpha<1?` fill-opacity="${st.alpha}"`:''}/>`); },
+    fillRect(x,y,w,h){ els.push(`<rect x="${F(x)}" y="${F(y)}" width="${F(w)}" height="${F(h)}" fill="${colorRef(st.fill)}"${st.alpha<1?` fill-opacity="${st.alpha}"`:''}/>`); },
+    strokeRect(x,y,w,h){ els.push(`<rect x="${F(x)}" y="${F(y)}" width="${F(w)}" height="${F(h)}" fill="none" stroke="${colorRef(st.stroke)}" stroke-width="${F(st.width)}"/>`); },
+    clearRect(){}, fillText(){}, strokeText(){}, measureText(){ return {width:0}; }, setLineDash(){},
+    createLinearGradient(x0,y0,x1,y1){ return {__grad:true,x0,y0,x1,y1,stops:[],addColorStop(o,c){ this.stops.push({o,c}); }}; },
+    set strokeStyle(v){ st.stroke=v; }, get strokeStyle(){ return st.stroke; },
+    set fillStyle(v){ st.fill=v; }, get fillStyle(){ return st.fill; },
+    set lineWidth(v){ st.width=v; }, get lineWidth(){ return st.width; },
+    set lineCap(v){ st.cap=v; }, get lineCap(){ return st.cap; },
+    set lineJoin(v){ st.join=v; }, get lineJoin(){ return st.join; },
+    set globalAlpha(v){ st.alpha=v; }, get globalAlpha(){ return st.alpha; },
+    set globalCompositeOperation(v){}, get globalCompositeOperation(){ return 'source-over'; },
+    set shadowBlur(v){}, get shadowBlur(){ return 0; }, set shadowColor(v){}, get shadowColor(){ return '#000'; },
+    set font(v){}, set textAlign(v){}, set textBaseline(v){},
+    translate(){}, scale(){}, rotate(){}, setTransform(){}, resetTransform(){}
+  };
+  return { ctx, defs:()=>defs.join(''), body:()=>els.join('') };
+}
+function paramSVG(d,R,w,h){
+  let defs='', body='', strokeRef=style.color1; const sw=style.width, op=style.opacity, opAttr=op<1?` stroke-opacity="${op}"`:'';
+  if(style.palette==='gradient'){
+    defs=`<linearGradient id="grad" gradientUnits="userSpaceOnUse" x1="${F(-R)}" y1="${F(-R)}" x2="${F(R)}" y2="${F(R)}"><stop offset="0" stop-color="${style.color1}"/><stop offset="1" stop-color="${style.color2}"/></linearGradient>`;
+    strokeRef='url(#grad)';
+  }
+  if(d.type==='poly'){
+    let ds='M'+F(d.pts[0].x)+' '+F(d.pts[0].y);
+    for(let i=1;i<d.pts.length;i++) ds+='L'+F(d.pts[i].x)+' '+F(d.pts[i].y);
+    body=`<path d="${ds}" fill="none" stroke="${strokeRef}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"${opAttr}/>`;
+  } else if(style.palette==='gradient'){
+    body=d.segs.map((s,i)=>`<line x1="${F(s[0].x)}" y1="${F(s[0].y)}" x2="${F(s[1].x)}" y2="${F(s[1].y)}" stroke="${hexLerp(style.color1,style.color2,i/d.segs.length)}" stroke-width="${sw}" stroke-linecap="round"${opAttr}/>`).join('');
+  } else {
+    let ds=''; for(const s of d.segs) ds+='M'+F(s[0].x)+' '+F(s[0].y)+'L'+F(s[1].x)+' '+F(s[1].y);
+    body=`<path d="${ds}" fill="none" stroke="${strokeRef}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"${opAttr}/>`;
+  }
+  return svgDoc(F(w),F(h),style.bg, defs, `<g transform="translate(${F(w/2)} ${F(h/2)})">${body}</g>`);
+}
+function buildSVG(){
+  const w=cv.width/dpr, h=cv.height/dpr;
+  if(mode==='code'){
+    const rec=makeSVGRecorder();
+    if(codeFn){ try{ codeFn(rec.ctx,w,h,anim.phase,Math.PI*2); }catch(e){ setCodeErr('SVG: '+e.message); } }
+    return svgDoc(F(w),F(h),style.bg, rec.defs(), rec.body());
+  }
+  const R=Math.min(w,h)*0.42;
+  return paramSVG(MODES[mode].build(params,anim.phase,R), R, w, h);
+}
+function saveSVG(){
+  const blob=new Blob([buildSVG()],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const a=el('a'); a.href=url; a.download=`mdg-${mode}-${Date.now()}.svg`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+/* ---- UI ---- */
+const fmt=(v,c)=> c.int ? String(v) : (c.step<0.01 ? v.toFixed(3) : v.toFixed(2));
+function buildParams(){
+  const box=$('#params'); box.innerHTML='';
+  if(mode==='code'){ buildEditor(box); return; }
+  MODES[mode].controls.forEach(c=>{
+    const row=el('div','ctrl');
+    const lab=el('label'); lab.innerHTML=`${c.label} <span class="val"></span>`;
+    const out=lab.querySelector('.val'); out.textContent=fmt(params[c.k],c);
+    const inp=el('input'); inp.type='range'; inp.min=c.min; inp.max=c.max; inp.step=c.step; inp.value=params[c.k];
+    inp.addEventListener('input',()=>{ let v=parseFloat(inp.value); if(c.int) v=Math.round(v); params[c.k]=v; out.textContent=fmt(v,c); triggerDraw(); });
+    row.append(lab,inp); box.append(row);
+  });
+}
+function buildTabs(){
+  const box=$('#tabs'); box.innerHTML='';
+  const tabs=[['code','Code'],...Object.keys(MODES).map(k=>[k,MODES[k].label])];
+  for(const [m,label] of tabs){
+    const b=el('button'); b.textContent=label; if(m===mode) b.classList.add('on');
+    b.addEventListener('click',()=>{ switchMode(m); [...box.children].forEach(c=>c.classList.toggle('on',c===b)); });
+    box.append(b);
+  }
+}
+function switchMode(m){
+  mode=m;
+  if(m!=='code') params=store[m];
+  applyModeUI();
+  if(m==='code'){ anim.progress=1; anim.drawing=false; dirty=true; } else triggerDraw();
+}
+function applyModeUI(){
+  $('#colourSection').style.display = mode==='code' ? 'none' : '';
+  buildParams();
+}
+function syncStatic(){
+  $('#c1').value=style.color1; $('#c2').value=style.color2; $('#bg').value=style.bg;
+  $('#w').value=style.width; $('#wv').textContent=style.width.toFixed(1);
+  $('#op').value=style.opacity; $('#opv').textContent=style.opacity.toFixed(2);
+  $('#neon').checked=style.neon; $('#trails').checked=style.trails; $('#animate').checked=anim.animate;
+  $('#ds').value=anim.drawSpeed; $('#dsv').textContent=anim.drawSpeed.toFixed(1);
+  $('#es').value=anim.evolveSpeed; $('#esv').textContent=anim.evolveSpeed.toFixed(2);
+  [...$('#pal').children].forEach(b=>b.classList.toggle('on',b.dataset.pal===style.palette));
+}
+function wire(){
+  $('#rand').onclick=randomize; $('#replay').onclick=triggerDraw; $('#save').onclick=savePNG; $('#saveSvg').onclick=saveSVG;
+  $('#c1').oninput=e=>{ style.color1=e.target.value; dirty=true; };
+  $('#c2').oninput=e=>{ style.color2=e.target.value; dirty=true; };
+  $('#bg').oninput=e=>{ style.bg=e.target.value; dirty=true; };
+  $('#w').oninput=e=>{ style.width=parseFloat(e.target.value); $('#wv').textContent=style.width.toFixed(1); dirty=true; };
+  $('#op').oninput=e=>{ style.opacity=parseFloat(e.target.value); $('#opv').textContent=style.opacity.toFixed(2); dirty=true; };
+  $('#neon').onchange=e=>{ style.neon=e.target.checked; dirty=true; };
+  $('#trails').onchange=e=>{ style.trails=e.target.checked; dirty=true; };
+  $('#animate').onchange=e=>{ anim.animate=e.target.checked; dirty=true; };
+  $('#ds').oninput=e=>{ anim.drawSpeed=parseFloat(e.target.value); $('#dsv').textContent=anim.drawSpeed.toFixed(1); };
+  $('#es').oninput=e=>{ anim.evolveSpeed=parseFloat(e.target.value); $('#esv').textContent=anim.evolveSpeed.toFixed(2); };
+  [...$('#pal').children].forEach(b=>b.onclick=()=>{ style.palette=b.dataset.pal; [...$('#pal').children].forEach(x=>x.classList.toggle('on',x===b)); dirty=true; });
+  window.addEventListener('keydown',e=>{
+    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    if(e.code==='Space'){ e.preventDefault(); triggerDraw(); }
+    else if(e.key==='r'||e.key==='R') randomize();
+    else if(e.key==='s'||e.key==='S') savePNG();
+    else if(e.key==='v'||e.key==='V') saveSVG();
+    else if(e.key==='a'||e.key==='A'){ anim.animate=!anim.animate; $('#animate').checked=anim.animate; dirty=true; }
+  });
+}
+
+/* ---- init ---- */
+buildTabs(); compileCode(); applyModeUI(); syncStatic(); wire(); resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
