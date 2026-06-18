@@ -451,11 +451,151 @@ function doorway(cx, cy, hw, hh) {
   }
   ctx.stroke();
 }`;
+const SOUND_WAVES_SKETCH =
+`// Sound Waves — overlaid oscilloscope waveforms, tapered like a sound packet.
+// Animate ON to watch them travel. ctx, w, h, t, TAU.
+
+const mid = h / 2;
+const waves = 5;
+const step = Math.max(2, Math.floor(w / 260));
+
+ctx.lineCap = 'round';
+ctx.lineJoin = 'round';
+
+// faint baseline
+ctx.strokeStyle = 'hsla(0, 0%, 100%, 0.12)';
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(0, mid); ctx.lineTo(w, mid);
+ctx.stroke();
+
+for (let k = 0; k < waves; k++) {
+  const freq = 2 + k * 1.6;                         // cycles across the width
+  const amp = h * 0.20 * (1 - k / (waves + 1));
+  const speed = 0.7 + k * 0.35;
+  const alpha = 0.85 - k * 0.13;
+  ctx.strokeStyle = 'hsla(0, 0%, 100%, ' + alpha + ')';
+  ctx.lineWidth = 2.4 - k * 0.32;
+  ctx.beginPath();
+  for (let x = 0; x <= w; x += step) {
+    const u = x / w;
+    const win = Math.sin(Math.PI * u);              // taper to 0 at both ends
+    const y = mid + Math.sin(u * freq * TAU + t * speed) * amp * win;
+    if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+}`;
+const METATRON_SKETCH =
+`// Metatron's Cube — the 13 circles of the Fruit of Life with every centre joined.
+// Animate ON for a slow rotation. ctx, w, h, t, TAU.
+
+const cx = w / 2, cy = h / 2;
+const r = Math.min(w, h) * 0.092;
+const rot = t * 0.1;
+
+const pts = [{ x: 0, y: 0 }];
+for (let k = 0; k < 6; k++) { const a = k * TAU / 6 + rot; pts.push({ x: Math.cos(a) * 2 * r, y: Math.sin(a) * 2 * r }); }
+for (let k = 0; k < 6; k++) { const a = k * TAU / 6 + rot; pts.push({ x: Math.cos(a) * 4 * r, y: Math.sin(a) * 4 * r }); }
+
+// every centre connected to every other centre
+ctx.strokeStyle = 'hsla(0, 0%, 100%, 0.26)';
+ctx.lineWidth = 1;
+ctx.beginPath();
+for (let i = 0; i < pts.length; i++)
+  for (let j = i + 1; j < pts.length; j++) {
+    ctx.moveTo(cx + pts[i].x, cy + pts[i].y);
+    ctx.lineTo(cx + pts[j].x, cy + pts[j].y);
+  }
+ctx.stroke();
+
+// the 13 circles
+ctx.strokeStyle = 'hsla(0, 0%, 100%, 0.9)';
+ctx.lineWidth = 1.5;
+for (let i = 0; i < pts.length; i++) {
+  ctx.beginPath();
+  ctx.arc(cx + pts[i].x, cy + pts[i].y, r, 0, TAU);
+  ctx.stroke();
+}`;
+const GRID_OF_LIFE_SKETCH =
+`// Grid of Life — Conway's Game of Life on a wrapping grid.
+// Animate ON to evolve; it reseeds when it dies out or stagnates. ctx, w, h, t, TAU.
+
+const cell = Math.max(10, Math.round(Math.min(w, h) / 38));
+const cols = Math.max(8, Math.floor(w / cell));
+const rows = Math.max(8, Math.floor(h / cell));
+const S = (globalThis.__gridOfLife = globalThis.__gridOfLife || {});
+
+function seed() {
+  S.grid = [];
+  for (let y = 0; y < rows; y++) {
+    const row = [];
+    for (let x = 0; x < cols; x++) row.push(Math.random() < 0.30 ? 1 : 0);
+    S.grid.push(row);
+  }
+  S.cols = cols; S.rows = rows; S.seedGen = S.gen || 0;
+}
+if (S.cols !== cols || S.rows !== rows || !S.grid) { S.gen = 0; seed(); }
+
+const targetGen = Math.floor(t * 4);               // ~4 generations per second
+while (S.gen < targetGen) {
+  const g = S.grid, ng = [];
+  let pop = 0;
+  for (let y = 0; y < rows; y++) {
+    const row = [];
+    for (let x = 0; x < cols; x++) {
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++)
+          if (dx || dy) n += g[(y + dy + rows) % rows][(x + dx + cols) % cols];
+      const alive = g[y][x] ? (n === 2 || n === 3) : (n === 3);
+      row.push(alive ? 1 : 0);
+      if (alive) pop++;
+    }
+    ng.push(row);
+  }
+  S.grid = ng; S.gen++;
+  if (pop === 0 || S.gen - S.seedGen > 140) seed();
+}
+
+// draw live cells
+ctx.fillStyle = 'hsla(0, 0%, 100%, 0.92)';
+const pad = Math.max(1, cell * 0.08);
+for (let y = 0; y < rows; y++)
+  for (let x = 0; x < cols; x++)
+    if (S.grid[y][x]) ctx.fillRect(x * cell + pad, y * cell + pad, cell - 2 * pad, cell - 2 * pad);`;
+const GOLDEN_RATIO_SKETCH =
+`// Golden Ratio — phyllotaxis: each seed sits one golden angle (137.5 deg) from the last.
+// Animate ON for a slow turn. ctx, w, h, t, TAU.
+
+const cx = w / 2, cy = h / 2;
+const phi = (1 + Math.sqrt(5)) / 2;
+const golden = TAU / (phi * phi);                  // the golden angle, ~137.5 deg
+const N = 600;
+const R = Math.min(w, h) * 0.46;
+const scale = R / Math.sqrt(N);                    // keeps the head inside the canvas
+const dot = Math.max(0.8, scale * 0.5);
+const spin = t * 0.12;
+
+for (let i = 1; i <= N; i++) {
+  const a = i * golden + spin;
+  const rad = scale * Math.sqrt(i);
+  const x = cx + Math.cos(a) * rad;
+  const y = cy + Math.sin(a) * rad;
+  const f = i / N;                                 // 0 at centre -> 1 at rim
+  ctx.fillStyle = 'hsla(45, 85%, ' + (55 + 25 * f) + '%, ' + (0.4 + 0.55 * f) + ')';
+  ctx.beginPath();
+  ctx.arc(x, y, dot, 0, TAU);
+  ctx.fill();
+}`;
 const SKETCHES = [
   { name: 'Doors',          code: WALK_SKETCH },
   { name: 'Side Doors',     code: SIDE_DOORS_SKETCH },
   { name: 'Turning Hall',   code: TURNING_HALL_SKETCH },
   { name: 'Swinging Doors', code: SWINGING_DOORS_SKETCH },
+  { name: 'Sound Waves',    code: SOUND_WAVES_SKETCH },
+  { name: "Metatron's Cube",code: METATRON_SKETCH },
+  { name: 'Grid of Life',   code: GRID_OF_LIFE_SKETCH },
+  { name: 'Golden Ratio',   code: GOLDEN_RATIO_SKETCH },
 ];
 const CODE_KEY='spiroloom.sketch';
 let codeText = (function(){ try{ return localStorage.getItem(CODE_KEY) || WALK_SKETCH; }catch(e){ return WALK_SKETCH; } })(), codeFn = null;
