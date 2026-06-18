@@ -94,6 +94,12 @@
   kbd{background:var(--panel2); border:1px solid var(--line); border-bottom-width:2px; border-radius:5px;
     padding:1px 5px; font:inherit; font-size:11px; color:var(--text)}
 
+  .info{color:var(--muted); font-size:12px; line-height:1.6}
+  .info code{background:var(--panel2); border:1px solid var(--line); border-radius:4px; padding:0 4px;
+    color:var(--accent); font-size:11.5px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .info b{color:var(--text); font-weight:600}
+  .exrow button.on{background:var(--accent); color:#05050a; border-color:var(--accent)}
+
   @media (max-width:820px){
     .app{flex-direction:column}
     .stage{height:52vh}
@@ -111,8 +117,8 @@
   <aside class="panel">
     <div class="head">
       <div class="actions">
-        <button class="go" id="rand">🎲 Surprise</button>
-        <button id="replay" title="Re-draw (Space)">▶ Replay</button>
+        <button class="go" id="rand">🎲 Random</button>
+        <button id="replay" title="Replay (Space)">▶ Replay</button>
       </div>
       <div class="actions" style="margin-top:8px">
         <button id="save" title="Save PNG (S)">⬇ PNG</button>
@@ -120,41 +126,30 @@
       </div>
     </div>
 
-    <div class="tabs" id="tabs"></div>
-
     <div class="section">
-      <h3>Shape</h3>
-      <div id="params"></div>
+      <h3>Examples</h3>
+      <div class="exrow" id="examples"></div>
     </div>
 
-    <div class="section" id="colourSection">
-      <h3>Colour</h3>
-      <div class="seg" id="pal">
-        <button data-pal="solid">Solid</button>
-        <button data-pal="gradient">Gradient</button>
-      </div>
-      <div class="row" style="margin-top:11px">
-        <div><label class="val" style="color:var(--muted);font-size:12px">Line A</label><input type="color" id="c1"></div>
-        <div><label class="val" style="color:var(--muted);font-size:12px">Line B</label><input type="color" id="c2"></div>
-      </div>
-      <div class="ctrl" style="margin-top:11px">
-        <label>Background <span class="val">&nbsp;</span></label><input type="color" id="bg">
-      </div>
-      <div class="ctrl"><label>Line width <span class="val" id="wv"></span></label><input type="range" id="w" min="0.4" max="6" step="0.1"></div>
-      <div class="ctrl"><label>Opacity <span class="val" id="opv"></span></label><input type="range" id="op" min="0.1" max="1" step="0.05"></div>
-      <div class="toggle"><span>Neon glow</span><input type="checkbox" id="neon"></div>
+    <div class="section">
+      <h3>How it works</h3>
+      <div class="info" id="info"></div>
+    </div>
+
+    <div class="section">
+      <h3>Code</h3>
+      <div id="editor"></div>
     </div>
 
     <div class="section">
       <h3>Motion</h3>
       <div class="toggle"><span>Animate</span><input type="checkbox" id="animate"></div>
       <div class="toggle"><span>Trails</span><input type="checkbox" id="trails"></div>
-      <div class="ctrl"><label>Draw speed <span class="val" id="dsv"></span></label><input type="range" id="ds" min="0.2" max="4" step="0.1"></div>
-      <div class="ctrl"><label>Evolve speed <span class="val" id="esv"></span></label><input type="range" id="es" min="0" max="2" step="0.05"></div>
+      <div class="ctrl"><label>Speed <span class="val" id="esv"></span></label><input type="range" id="es" min="0" max="2" step="0.05"></div>
     </div>
 
     <div class="hint">
-      <b>Keys:</b> <kbd>Space</kbd> replay · <kbd>R</kbd> surprise · <kbd>S</kbd> PNG · <kbd>V</kbd> SVG · <kbd>A</kbd> animate
+      <b>Keys:</b> <kbd>Space</kbd> replay · <kbd>R</kbd> random · <kbd>S</kbd> PNG · <kbd>V</kbd> SVG · <kbd>A</kbd> animate
     </div>
   </aside>
 </div>
@@ -173,97 +168,9 @@ function hslHex(h,s,l){ s/=100; l/=100; const k=n=>(n+h/30)%12; const a=s*Math.m
   return `#${to(f(0))}${to(f(8))}${to(f(4))}`; }
 const randHue = () => hslHex(Math.floor(Math.random()*360),85,60);
 
-/* ---- generators: each returns a polyline (poly) or list of chords (lines) ---- */
-const MODES = {
-  spiro: {
-    label:'Spirograph',
-    controls:[
-      {k:'R',   label:'Ring teeth',   min:20, max:160, step:1, def:90, int:true},
-      {k:'r',   label:'Wheel teeth',  min:5,  max:120, step:1, def:54, int:true},
-      {k:'pen', label:'Pen position', min:0.05, max:1, step:0.01, def:0.9},
-    ],
-    build(p,ph,R){
-      const Rt=p.R, rt=p.r, rev=Math.min(40,Math.max(1,Math.round(rt/gcd(Rt,rt))));
-      const tMax=2*Math.PI*rev, Rr=Rt-rt;
-      const dd=clamp(p.pen+0.1*Math.sin(ph*0.7),0.02,1.2)*rt;
-      const scale=R/((Math.abs(Rr)+dd)||1);
-      const segs=Math.min(3000,Math.max(240,rev*160));
-      const rot=ph*0.3, cr=Math.cos(rot), sr=Math.sin(rot), pts=[];
-      for(let i=0;i<=segs;i++){
-        const t=tMax*i/segs;
-        const x=(Rr*Math.cos(t)+dd*Math.cos(Rr/rt*t))*scale;
-        const y=(Rr*Math.sin(t)-dd*Math.sin(Rr/rt*t))*scale;
-        pts.push({x:x*cr-y*sr,y:x*sr+y*cr});
-      }
-      return {type:'poly',pts};
-    }
-  },
-  harmono: {
-    label:'Harmonograph',
-    controls:[
-      {k:'fx',     label:'X frequency', min:1, max:10, step:0.01, def:3},
-      {k:'fy',     label:'Y frequency', min:1, max:10, step:0.01, def:2},
-      {k:'detune', label:'Detune',      min:0, max:0.5, step:0.001, def:0.02},
-      {k:'damp',   label:'Damping',     min:0, max:0.06, step:0.001, def:0.012},
-      {k:'cycles', label:'Length',      min:4, max:60, step:1, def:24, int:true},
-    ],
-    build(p,ph,R){
-      const f1=p.fx, f2=p.fx+p.detune, f3=p.fy, f4=p.fy+p.detune, dec=p.damp;
-      const tMax=2*Math.PI*p.cycles, segs=Math.min(4200,Math.max(400,Math.round(p.cycles*150)));
-      const pX=ph*0.5, pY=Math.PI/2, pts=[];
-      for(let i=0;i<=segs;i++){
-        const t=tMax*i/segs, e=Math.exp(-dec*t);
-        pts.push({
-          x:(Math.sin(f1*t+pX)+Math.sin(f2*t))*0.5*e*R,
-          y:(Math.sin(f3*t+pY)+Math.sin(f4*t))*0.5*e*R
-        });
-      }
-      return {type:'poly',pts};
-    }
-  },
-  rose: {
-    label:'Rose',
-    controls:[
-      {k:'n',   label:'Petal n',  min:1, max:24, step:1, def:5, int:true},
-      {k:'d',   label:'Petal d',  min:1, max:24, step:1, def:4, int:true},
-      {k:'amp', label:'Fullness', min:0.2, max:1, step:0.01, def:1},
-    ],
-    build(p,ph,R){
-      const k=p.n/p.d, tMax=2*Math.PI*p.d, segs=Math.min(5200,Math.max(600,Math.round(p.d*360)));
-      const amp=p.amp*R, ps=ph*0.5, rot=ph*0.2, cr=Math.cos(rot), sr=Math.sin(rot), pts=[];
-      for(let i=0;i<=segs;i++){
-        const th=tMax*i/segs, rr=Math.cos(k*th+ps)*amp;
-        const x=rr*Math.cos(th), y=rr*Math.sin(th);
-        pts.push({x:x*cr-y*sr,y:x*sr+y*cr});
-      }
-      return {type:'poly',pts};
-    }
-  },
-  string: {
-    label:'String Art',
-    controls:[
-      {k:'N',    label:'Points',     min:12, max:360, step:1, def:200, int:true},
-      {k:'mult', label:'Multiplier', min:2,  max:120, step:0.01, def:2},
-    ],
-    build(p,ph,R){
-      const N=Math.round(p.N), m=p.mult+ph*0.12, segs=[];
-      for(let i=0;i<N;i++){
-        const a=2*Math.PI*i/N-Math.PI/2, j=(i*m)%N, b=2*Math.PI*j/N-Math.PI/2;
-        segs.push([{x:Math.cos(a)*R,y:Math.sin(a)*R},{x:Math.cos(b)*R,y:Math.sin(b)*R}]);
-      }
-      return {type:'lines',segs};
-    }
-  }
-};
-
-/* ---- state ---- */
-let mode='code';
-const store={};
-for(const m in MODES){ store[m]={}; MODES[m].controls.forEach(c=>store[m][c.k]=c.def); }
-let params=store.spiro;
-const style={ palette:'gradient', color1:'#7df9ff', color2:'#ff5dd8', bg:'#0a0a14',
-  width:1.6, opacity:0.9, neon:true, trails:false };
-const anim={ animate:true, drawSpeed:1.4, evolveSpeed:0.45, progress:0, phase:0, drawing:true };
+/* ---- state (math-example gallery: live code sketches only) ---- */
+const style={ bg:'#0a0a14', trails:false };
+const anim={ animate:true, evolveSpeed:0.5, phase:0 };
 
 /* ---- code-sketch mode ---- */
 const SIDE_DOORS_SKETCH =
@@ -829,22 +736,215 @@ for (let d = 0; d <= depth; d++) {
   ctx.fill();
   level = next;
 }`;
+const MANDELBROT_SKETCH =
+`// Mandelbrot Set — iterate z -> z^2 + c; colour by escape time. (Raster: export as PNG.)
+// ctx, w, h, t, TAU.
+
+const S = (globalThis.__mandel = globalThis.__mandel || {});
+const CW = Math.min(640, Math.round(w)), CH = Math.max(1, Math.round(CW * h / w));
+const key = CW + 'x' + CH;
+if (S.key !== key) {
+  S.key = key;
+  const off = document.createElement('canvas'); off.width = CW; off.height = CH;
+  const octx = off.getContext('2d'), img = octx.createImageData(CW, CH), dat = img.data, maxIt = 90;
+  const minX = -2.4, maxX = 1.0, minY = -1.3, maxY = 1.3;
+  for (let py = 0; py < CH; py++) {
+    const y0 = minY + (maxY - minY) * py / CH;
+    for (let px = 0; px < CW; px++) {
+      const x0 = minX + (maxX - minX) * px / CW;
+      let zx = 0, zy = 0, it = 0;
+      while (zx * zx + zy * zy <= 4 && it < maxIt) { const xt = zx * zx - zy * zy + x0; zy = 2 * zx * zy + y0; zx = xt; it++; }
+      const o = (py * CW + px) * 4;
+      if (it >= maxIt) { dat[o] = dat[o + 1] = dat[o + 2] = 8; }
+      else { const m = it / maxIt; dat[o] = 9 + 255 * Math.sqrt(m); dat[o + 1] = 30 + 200 * m * m; dat[o + 2] = 70 + 180 * Math.sqrt(m); }
+      dat[o + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0); S.canvas = off;
+}
+ctx.drawImage(S.canvas, 0, 0, w, h);`;
+const JULIA_SKETCH =
+`// Julia Set — same z -> z^2 + c, but c is fixed and z starts at the pixel. (Raster: PNG.)
+// ctx, w, h, t, TAU.
+
+const S = (globalThis.__julia = globalThis.__julia || {});
+const cRe = -0.8, cIm = 0.156;
+const CW = Math.min(640, Math.round(w)), CH = Math.max(1, Math.round(CW * h / w));
+const key = CW + 'x' + CH;
+if (S.key !== key) {
+  S.key = key;
+  const off = document.createElement('canvas'); off.width = CW; off.height = CH;
+  const octx = off.getContext('2d'), img = octx.createImageData(CW, CH), dat = img.data, maxIt = 110, span = 3.0;
+  for (let py = 0; py < CH; py++) {
+    const y0 = (py / CH - 0.5) * span;
+    for (let px = 0; px < CW; px++) {
+      const x0 = (px / CW - 0.5) * span * (CW / CH);
+      let zx = x0, zy = y0, it = 0;
+      while (zx * zx + zy * zy <= 4 && it < maxIt) { const xt = zx * zx - zy * zy + cRe; zy = 2 * zx * zy + cIm; zx = xt; it++; }
+      const o = (py * CW + px) * 4, m = it / maxIt;
+      if (it >= maxIt) { dat[o] = dat[o + 1] = dat[o + 2] = 8; }
+      else { dat[o] = 20 + 235 * m; dat[o + 1] = 12 + 120 * Math.sqrt(m); dat[o + 2] = 60 + 195 * (1 - m); }
+      dat[o + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0); S.canvas = off;
+}
+ctx.drawImage(S.canvas, 0, 0, w, h);`;
+const BARNSLEY_FERN_SKETCH =
+`// Barnsley Fern — an IFS 'chaos game': each step picks one of 4 affine maps at random.
+// (Raster: export as PNG.) ctx, w, h, t, TAU.
+
+const S = (globalThis.__fern = globalThis.__fern || {});
+const key = Math.round(w) + 'x' + Math.round(h);
+if (S.key !== key) {
+  S.key = key; S.x = 0; S.y = 0;
+  S.off = document.createElement('canvas'); S.off.width = Math.round(w); S.off.height = Math.round(h);
+  S.octx = S.off.getContext('2d');
+}
+const octx = S.octx, W = S.off.width, H = S.off.height;
+octx.fillStyle = 'hsla(120, 60%, 65%, 0.85)';
+let x = S.x, y = S.y;
+for (let i = 0; i < 1400; i++) {
+  const r = Math.random(); let nx, ny;
+  if (r < 0.01) { nx = 0; ny = 0.16 * y; }
+  else if (r < 0.86) { nx = 0.85 * x + 0.04 * y; ny = -0.04 * x + 0.85 * y + 1.6; }
+  else if (r < 0.93) { nx = 0.20 * x - 0.26 * y; ny = 0.23 * x + 0.22 * y + 1.6; }
+  else { nx = -0.15 * x + 0.28 * y; ny = 0.26 * x + 0.24 * y + 0.44; }
+  x = nx; y = ny;
+  octx.fillRect(W * (x + 2.8) / 5.6, H - H * y / 11, 1, 1);
+}
+S.x = x; S.y = y;
+ctx.drawImage(S.off, 0, 0, w, h);`;
+const COLLATZ_SKETCH =
+`// Collatz (3n+1) — each number's hailstone path, turned by parity; overlaid into a coral.
+// (Raster: export as PNG.) ctx, w, h, t, TAU.
+
+const S = (globalThis.__collatz = globalThis.__collatz || {});
+const key = Math.round(w) + 'x' + Math.round(h);
+if (S.key !== key) {
+  S.key = key;
+  const seg = Math.min(w, h) * 0.02, aEven = 0.16, aOdd = -0.32, paths = [];
+  let mnx = 1e9, mny = 1e9, mxx = -1e9, mxy = -1e9;
+  for (let n = 2; n <= 1000; n++) {
+    const seq = []; let m = n;
+    while (m !== 1) { seq.push(m); m = (m % 2 === 0) ? m / 2 : 3 * m + 1; }
+    seq.push(1); seq.reverse();
+    let x = 0, y = 0, ang = -Math.PI / 2; const pts = [[0, 0]];
+    for (let i = 1; i < seq.length; i++) {
+      ang += (seq[i] % 2 === 0) ? aEven : aOdd;
+      x += Math.cos(ang) * seg; y += Math.sin(ang) * seg; pts.push([x, y]);
+      if (x < mnx) mnx = x; if (x > mxx) mxx = x; if (y < mny) mny = y; if (y > mxy) mxy = y;
+    }
+    paths.push(pts);
+  }
+  const sc = Math.min(w / (mxx - mnx || 1), h / (mxy - mny || 1)) * 0.9;
+  const ox = w / 2 - (mnx + mxx) / 2 * sc, oy = h / 2 - (mny + mxy) / 2 * sc;
+  const off = document.createElement('canvas'); off.width = Math.round(w); off.height = Math.round(h);
+  const octx = off.getContext('2d');
+  octx.lineCap = 'round'; octx.lineJoin = 'round'; octx.lineWidth = 1;
+  octx.strokeStyle = 'hsla(140, 65%, 70%, 0.14)';
+  octx.beginPath();
+  for (const p of paths) for (let i = 0; i < p.length; i++) { const X = ox + p[i][0] * sc, Y = oy + p[i][1] * sc; if (i === 0) octx.moveTo(X, Y); else octx.lineTo(X, Y); }
+  octx.stroke();
+  S.off = off;
+}
+ctx.drawImage(S.off, 0, 0, w, h);`;
+const DRAGON_CURVE_SKETCH =
+`// Dragon Curve — fold a strip in half repeatedly; every crease becomes a 90-degree turn.
+// ctx, w, h, t, TAU.
+
+const S = (globalThis.__dragon = globalThis.__dragon || {});
+const order = 13;
+if (!S.pts || S.order !== order) {
+  S.order = order;
+  const dxs = [1, 0, -1, 0], dys = [0, 1, 0, -1];
+  let dir = 0, x = 0, y = 0; const pts = [[0, 0]], total = 1 << order;
+  for (let i = 1; i < total; i++) {
+    x += dxs[dir]; y += dys[dir]; pts.push([x, y]);
+    const right = (((i & -i) << 1) & i) !== 0;
+    dir = (dir + (right ? 3 : 1)) % 4;
+  }
+  x += dxs[dir]; y += dys[dir]; pts.push([x, y]);
+  let mnx = 1e9, mny = 1e9, mxx = -1e9, mxy = -1e9;
+  for (const p of pts) { if (p[0] < mnx) mnx = p[0]; if (p[0] > mxx) mxx = p[0]; if (p[1] < mny) mny = p[1]; if (p[1] > mxy) mxy = p[1]; }
+  S.pts = pts; S.bb = [mnx, mny, mxx, mxy];
+}
+const bb = S.bb, sc = Math.min(w / (bb[2] - bb[0] || 1), h / (bb[3] - bb[1] || 1)) * 0.86;
+const ox = w / 2 - (bb[0] + bb[2]) / 2 * sc, oy = h / 2 - (bb[1] + bb[3]) / 2 * sc;
+ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 1.2;
+ctx.strokeStyle = 'hsla(280, 70%, 74%, 0.9)';
+ctx.beginPath();
+const pts = S.pts;
+for (let i = 0; i < pts.length; i++) { const X = ox + pts[i][0] * sc, Y = oy + pts[i][1] * sc; if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y); }
+ctx.stroke();`;
+const FOURIER_SKETCH =
+`// Fourier Epicycles — odd harmonics (4/n.pi).sin(n.t) as stacked rotating circles
+// sum to a square wave. Animate ON. ctx, w, h, t, TAU.
+
+const S = (globalThis.__fourier = globalThis.__fourier || { trace: [] });
+if (S.h !== h) { S.h = h; S.trace = []; }
+const terms = 6, cyc = h * 0.5, baseR = Math.min(w, h) * 0.18, cxc = w * 0.30;
+let px = cxc, py = cyc;
+ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+for (let k = 0; k < terms; k++) {
+  const n = 2 * k + 1, r = baseR * (4 / (n * Math.PI));
+  ctx.strokeStyle = 'hsla(0, 0%, 100%, 0.16)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(px, py, r, 0, TAU); ctx.stroke();
+  const ang = n * t, nx = px + r * Math.cos(ang), ny = py + r * Math.sin(ang);
+  ctx.strokeStyle = 'hsla(45, 90%, 65%, 0.7)';
+  ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(nx, ny); ctx.stroke();
+  px = nx; py = ny;
+}
+S.trace.unshift(py);
+const maxLen = 240; if (S.trace.length > maxLen) S.trace.length = maxLen;
+const waveX0 = cxc + baseR + 30, dx = (w - waveX0 - 8) / maxLen;
+ctx.strokeStyle = 'hsla(0, 0%, 100%, 0.25)'; ctx.lineWidth = 1;
+ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(waveX0, S.trace[0]); ctx.stroke();
+ctx.strokeStyle = 'hsla(45, 90%, 65%, 0.95)'; ctx.lineWidth = 1.6;
+ctx.beginPath();
+for (let i = 0; i < S.trace.length; i++) { const X = waveX0 + i * dx, Y = S.trace[i]; if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y); }
+ctx.stroke();`;
+const SIERPINSKI_SKETCH =
+`// Sierpinski Triangle — remove the middle of each triangle, forever (depth 7).
+// Animate ON for a slow turn. ctx, w, h, t, TAU.
+
+const depth = 7;
+const R = Math.min(w, h) * 0.46;
+const cx = w / 2, cy = h / 2 + R * 0.12, rot = t * 0.08;
+const v = [];
+for (let k = 0; k < 3; k++) { const a = -Math.PI / 2 + k * TAU / 3 + rot; v.push([cx + Math.cos(a) * R, cy + Math.sin(a) * R]); }
+ctx.fillStyle = 'hsla(0, 0%, 100%, 0.9)';
+ctx.beginPath();
+function tri(a, b, c, n) {
+  if (n === 0) { ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.closePath(); return; }
+  const ab = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], bc = [(b[0] + c[0]) / 2, (b[1] + c[1]) / 2], ca = [(c[0] + a[0]) / 2, (c[1] + a[1]) / 2];
+  tri(a, ab, ca, n - 1); tri(ab, b, bc, n - 1); tri(ca, bc, c, n - 1);
+}
+tri(v[0], v[1], v[2], depth);
+ctx.fill();`;
 const SKETCHES = [
-  { name: 'Doors',           code: WALK_SKETCH },
-  { name: 'Side Doors',      code: SIDE_DOORS_SKETCH },
-  { name: 'Turning Hall',    code: TURNING_HALL_SKETCH },
-  { name: 'Swinging Doors',  code: SWINGING_DOORS_SKETCH },
-  { name: 'Sound Waves',     code: SOUND_WAVES_SKETCH },
-  { name: "Metatron's Cube", code: METATRON_SKETCH },
-  { name: 'Grid of Life',    code: GRID_OF_LIFE_SKETCH },
-  { name: 'Phyllotaxis',     code: PHYLLOTAXIS_SKETCH },
-  { name: 'Fibonacci',       code: FIBONACCI_SKETCH },
-  { name: 'Lissajous',       code: LISSAJOUS_SKETCH },
-  { name: 'Lorenz Attractor',code: LORENZ_SKETCH },
-  { name: 'Hilbert Curve',   code: HILBERT_SKETCH },
-  { name: 'Koch Snowflake',  code: KOCH_SKETCH },
-  { name: 'Prime Spiral',    code: PRIME_SPIRAL_SKETCH },
-  { name: 'Pythagoras Tree', code: PYTHAGORAS_SKETCH },
+  { name: 'Doors',           code: WALK_SKETCH,        info: `A first-person corridor — a tiny lesson in <b>perspective projection</b>. An object at depth <code>z</code> appears at size proportional to <code>1/z</code>, so we loop depth layers, scale each by <code>focal/z</code>, and recycle the nearest one as you "walk" forward.` },
+  { name: 'Side Doors',      code: SIDE_DOORS_SKETCH,  info: `The same <code>1/z</code> perspective, with trapezoidal openings cut into the side walls. Each opening's near and far edges use the wall's own <code>focal/z</code> at two different depths, so the gaps foreshorten correctly.` },
+  { name: 'Turning Hall',    code: TURNING_HALL_SKETCH,info: `A corridor whose centre-line bends by <code>sin(z·k − t)</code>, weighted by <code>(1 − z/N)</code> so the far end stays pinned to the vanishing point while the near hall swings — and the bend travels toward you.` },
+  { name: 'Swinging Doors',  code: SWINGING_DOORS_SKETCH, info: `A perspective corridor where each door hinges open as you reach it. The free edge foreshortens by <code>cos(θ)</code> as it swings, and a filled leaf occludes the doors behind it.` },
+  { name: 'Sound Waves',     code: SOUND_WAVES_SKETCH, info: `Overlaid sine waves <code>sin(2π·f·x + t)</code> at rising frequencies, each multiplied by a window <code>sin(πx)</code> that tapers both ends — like an oscilloscope tracing a packet of sound.` },
+  { name: "Metatron's Cube", code: METATRON_SKETCH,    info: `The 13 circles of the "Fruit of Life" (a centre, a hexagon at radius <code>2r</code>, another at <code>4r</code>) with a straight line joining <b>every</b> pair of centres. Those 78 lines contain the silhouettes of the Platonic solids.` },
+  { name: 'Grid of Life',    code: GRID_OF_LIFE_SKETCH,info: `Conway's <b>Game of Life</b>. Each cell counts its 8 neighbours: a live cell survives on 2–3, a dead cell is born on exactly 3. These two rules alone produce gliders, oscillators and chaos. It reseeds when it dies out.` },
+  { name: 'Phyllotaxis',     code: PHYLLOTAXIS_SKETCH, info: `How a sunflower packs seeds. Seed <code>n</code> sits at angle <code>n × 137.5°</code> — the <b>golden angle</b>, <code>360°/φ²</code> — and radius <code>c·√n</code>. Because the golden angle never lines up, seeds fill space as tightly as possible.` },
+  { name: 'Fibonacci',       code: FIBONACCI_SKETCH,   info: `The <b>golden spiral</b>. Squares with Fibonacci side lengths (1, 1, 2, 3, 5, 8…) tile a golden rectangle; a quarter-circle inside each square joins into a spiral that grows by <code>φ</code> every quarter-turn.` },
+  { name: 'Lissajous',       code: LISSAJOUS_SKETCH,   info: `The table of curves <code>x = sin(a·θ), y = sin(b·θ)</code>. The frequency ratio <code>a:b</code> sets the knot; the animated phase makes each figure breathe. You see these whenever two signals drive an oscilloscope.` },
+  { name: 'Lorenz Attractor',code: LORENZ_SKETCH,      info: `A 3-equation weather model: <code>x'=σ(y−x)</code>, <code>y'=x(ρ−z)−y</code>, <code>z'=xy−βz</code>. It never repeats yet stays trapped on a butterfly-shaped <b>strange attractor</b> — the birthplace of chaos theory and the "butterfly effect".` },
+  { name: 'Hilbert Curve',   code: HILBERT_SKETCH,     info: `A <b>space-filling</b> fractal: one line that visits every cell of a grid without crossing itself, built by recursively rotating and linking four smaller copies. Points close on the line stay close in space — handy for image and database indexing.` },
+  { name: 'Koch Snowflake',  code: KOCH_SKETCH,        info: `Replace the middle third of every edge with a triangular bump, forever. The perimeter multiplies by <code>4/3</code> each step → <b>infinite length around a finite area</b>. Its fractal dimension is <code>log4/log3 ≈ 1.26</code>.` },
+  { name: 'Prime Spiral',    code: PRIME_SPIRAL_SKETCH,info: `<b>Ulam's spiral</b>. Write 1, 2, 3… along a square spiral and light up the primes. They fall on surprising diagonal streaks — the fingerprint of prime-rich polynomials like <code>4x²+bx+c</code>, still not fully understood.` },
+  { name: 'Pythagoras Tree', code: PYTHAGORAS_SKETCH,  info: `From a square, raise two smaller squares on top meeting at a right angle — the areas obey <code>a² + b² = c²</code>. Recurse on each new square. The branch angle (swaying here) decides how the "tree" leans.` },
+  { name: 'Mandelbrot',      code: MANDELBROT_SKETCH,  info: `For each point <code>c</code>, iterate <code>z → z² + c</code> from <code>z = 0</code>; colour by how fast it escapes. Points that never escape (black) form the <b>Mandelbrot set</b> — endless detail at every zoom. <i>Raster: use PNG export.</i>` },
+  { name: 'Julia',           code: JULIA_SKETCH,       info: `The same map <code>z → z² + c</code>, but now <code>c</code> is fixed and the <b>starting</b> <code>z</code> is the pixel. Every <code>c</code> gives a different Julia set; this is <code>c = −0.8 + 0.156i</code>. <i>Raster: use PNG export.</i>` },
+  { name: 'Barnsley Fern',   code: BARNSLEY_FERN_SKETCH, info: `An <b>iterated function system</b>: repeatedly apply one of four affine maps chosen at random (the "chaos game"). Pure randomness, yet the points always settle onto exactly the same fern. <i>Raster: use PNG export.</i>` },
+  { name: 'Collatz',         code: COLLATZ_SKETCH,     info: `The <b>3n+1 conjecture</b>: from any <code>n</code>, take <code>n/2</code> if even or <code>3n+1</code> if odd — you always seem to reach 1. Each number's path is drawn from the root, turning by parity, overlapping into a coral. Unproven for 85+ years. <i>Raster: PNG.</i>` },
+  { name: 'Dragon Curve',    code: DRAGON_CURVE_SKETCH,info: `Fold a strip of paper in half again and again, then open every crease to 90°. The edge traces the <b>Heighway dragon</b> — a fractal that tiles the plane perfectly and never crosses itself.` },
+  { name: 'Fourier',         code: FOURIER_SKETCH,     info: `Any periodic signal is a sum of sines. Here the odd harmonics <code>(4/nπ)·sin(n·t)</code> are drawn as stacked rotating circles; the tip's height traces a <b>square wave</b> on the right. This is the heart of Fourier analysis.` },
+  { name: 'Sierpinski',      code: SIERPINSKI_SKETCH,  info: `Take a triangle, remove its middle quarter, and repeat on the three corners forever. The limit has <b>zero area but infinite edge</b> — and it secretly appears in Pascal's triangle mod 2 and in the chaos game.` },
 ];
 const CODE_KEY='spiroloom.sketch';
 let codeText = (function(){ try{ return localStorage.getItem(CODE_KEY) || WALK_SKETCH; }catch(e){ return WALK_SKETCH; } })(), codeFn = null;
@@ -855,25 +955,39 @@ function compileCode(){
 }
 function setCodeErr(msg){ const e=$('#err'); if(e) e.textContent=msg; }
 function buildEditor(box){
-  const hint=el('div','codehint'); hint.textContent='Live JS sketch — pick an example or write your own (ctx, w, h, t, TAU). Auto-saved; errors below.';
+  const hint=el('div','codehint'); hint.innerHTML='Live JS — edit and it redraws as you type. Globals: <code style="color:var(--accent)">ctx, w, h, t, TAU</code>. Auto-saved.';
   const ta=el('textarea'); ta.id='code'; ta.value=codeText; ta.spellcheck=false;
-  ta.addEventListener('input',()=>{ codeText=ta.value; saveSketch(); compileCode(); dirty=true; });
+  ta.addEventListener('input',()=>{ codeText=ta.value; saveSketch(); compileCode(); refreshInfo(); dirty=true; });
   ta.addEventListener('keydown',e=>{
     if(e.key==='Tab'){ e.preventDefault(); const s=ta.selectionStart, en=ta.selectionEnd;
       ta.value=ta.value.slice(0,s)+'  '+ta.value.slice(en); ta.selectionStart=ta.selectionEnd=s+2;
-      codeText=ta.value; saveSketch(); compileCode(); dirty=true; }
-  });
-  const exrow=el('div','exrow'); const lab=el('span','exlabel'); lab.textContent='Examples:'; exrow.append(lab);
-  SKETCHES.forEach(sk=>{
-    const b=el('button'); b.textContent=sk.name;
-    b.onclick=()=>{
-      if(!SKETCHES.some(x=>x.code===codeText) && !confirm('Load "'+sk.name+'"? This replaces your current sketch.')) return;
-      codeText=sk.code; ta.value=codeText; saveSketch(); compileCode(); dirty=true;
-    };
-    exrow.append(b);
+      codeText=ta.value; saveSketch(); compileCode(); refreshInfo(); dirty=true; }
   });
   const err=el('div','err'); err.id='err';
-  box.append(hint,exrow,ta,err); setCodeErr('');
+  box.append(hint,ta,err); setCodeErr('');
+}
+function loadExample(i){
+  codeText=SKETCHES[i].code;
+  const ta=$('#code'); if(ta) ta.value=codeText;
+  saveSketch(); compileCode(); refreshInfo(); anim.phase=0; dirty=true;
+}
+function buildExamples(){
+  const box=$('#examples'); box.innerHTML='';
+  SKETCHES.forEach((sk,i)=>{
+    const b=el('button'); b.textContent=sk.name; b.dataset.i=i;
+    b.onclick=()=>{
+      if(SKETCHES.findIndex(x=>x.code===codeText)<0 && !confirm('Load "'+sk.name+'"? This replaces your current sketch.')) return;
+      loadExample(i);
+    };
+    box.append(b);
+  });
+}
+function refreshInfo(){
+  const idx=SKETCHES.findIndex(s=>s.code===codeText);
+  const info=$('#info');
+  if(info) info.innerHTML = idx>=0 ? SKETCHES[idx].info
+    : 'Custom sketch — pick an example above to see the maths behind it, or keep writing your own with <code>ctx, w, h, t, TAU</code>.';
+  const box=$('#examples'); if(box) [...box.children].forEach(b=>b.classList.toggle('on', +b.dataset.i===idx));
 }
 
 /* ---- canvas ---- */
@@ -896,47 +1010,15 @@ function render(){
   ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1; ctx.shadowBlur=0;
   ctx.fillStyle = (style.trails && anim.animate) ? hexA(style.bg,0.12) : style.bg;
   ctx.fillRect(0,0,w,h);
-  if(mode==='code'){
-    if(codeFn){
-      ctx.save();
-      ctx.lineWidth=2; ctx.lineJoin='round'; ctx.lineCap='round';
-      ctx.strokeStyle='#cfe9ff'; ctx.fillStyle='#cfe9ff';
-      try{ codeFn(ctx,w,h,anim.phase,Math.PI*2); }
-      catch(e){ setCodeErr('Runtime: '+e.message); }
-      ctx.restore();
-    }
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    return;
+  if(codeFn){
+    ctx.save();
+    ctx.lineWidth=2; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.strokeStyle='#cfe9ff'; ctx.fillStyle='#cfe9ff';
+    try{ codeFn(ctx,w,h,anim.phase,Math.PI*2); }
+    catch(e){ setCodeErr('Runtime: '+e.message); }
+    ctx.restore();
   }
-  stageR=Math.min(w,h)*0.42;
-  ctx.translate(w/2,h/2);
-  drawData(MODES[mode].build(params,anim.phase,stageR));
   ctx.setTransform(dpr,0,0,dpr,0,0);
-}
-function drawData(d){
-  ctx.lineWidth=style.width; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.globalAlpha=style.opacity;
-  if(style.neon){ ctx.globalCompositeOperation='lighter'; ctx.shadowBlur=style.width*3.4; }
-  else { ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0; }
-  if(d.type==='poly'){
-    const pts=d.pts, total=pts.length-1, count=Math.max(1,Math.floor(total*anim.progress));
-    if(style.palette==='gradient'){
-      const g=ctx.createLinearGradient(-stageR,-stageR,stageR,stageR);
-      g.addColorStop(0,style.color1); g.addColorStop(1,style.color2); ctx.strokeStyle=g;
-    } else ctx.strokeStyle=style.color1;
-    if(style.neon) ctx.shadowColor=style.color1;
-    ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
-    for(let i=1;i<=count;i++) ctx.lineTo(pts[i].x,pts[i].y);
-    ctx.stroke();
-  } else {
-    const segs=d.segs, total=segs.length, count=Math.max(1,Math.floor(total*anim.progress));
-    for(let i=0;i<count;i++){
-      const s=segs[i];
-      if(style.palette==='gradient'){ ctx.strokeStyle=hexLerp(style.color1,style.color2,i/total); if(style.neon) ctx.shadowColor=ctx.strokeStyle; }
-      else { ctx.strokeStyle=style.color1; if(style.neon) ctx.shadowColor=style.color1; }
-      ctx.beginPath(); ctx.moveTo(s[0].x,s[0].y); ctx.lineTo(s[1].x,s[1].y); ctx.stroke();
-    }
-  }
-  ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over'; ctx.shadowBlur=0;
 }
 
 /* ---- loop ---- */
@@ -945,27 +1027,18 @@ function loop(now){
   if(!lastT) lastT=now;
   const dt=Math.min(0.05,(now-lastT)/1000); lastT=now;
   let active=false;
-  if(anim.drawing){ anim.progress+=anim.drawSpeed*dt; if(anim.progress>=1){ anim.progress=1; anim.drawing=false; } active=true; }
   if(anim.animate){ anim.phase+=anim.evolveSpeed*dt; active=true; }
   if(active||dirty){ render(); dirty=false; }
   requestAnimationFrame(loop);
 }
-function triggerDraw(){ anim.progress=0; anim.drawing=true; }
+function triggerDraw(){ dirty=true; }
+function replay(){ anim.phase=0; dirty=true; }
 
 /* ---- actions ---- */
-function randomize(){
-  if(mode==='code') return;
-  MODES[mode].controls.forEach(c=>{ let v=c.min+Math.random()*(c.max-c.min); if(c.int) v=Math.round(v); params[c.k]=v; });
-  if(mode==='spiro' && params.r===params.R) params.r=Math.max(5,params.R-7);
-  style.palette=['solid','gradient'][Math.floor(Math.random()*2)];
-  style.color1=randHue(); style.color2=randHue();
-  syncStatic(); buildParams(); triggerDraw();
-}
+function pickRandom(){ loadExample(Math.floor(Math.random()*SKETCHES.length)); }
 function savePNG(){
-  const wasDrawing=anim.drawing, p=anim.progress;
-  anim.progress=1; anim.drawing=false; render();
-  const a=el('a'); a.href=cv.toDataURL('image/png'); a.download=`mdg-${mode}-${Date.now()}.png`; a.click();
-  anim.progress=p; anim.drawing=wasDrawing; dirty=true;
+  render();
+  const a=el('a'); a.href=cv.toDataURL('image/png'); a.download=`mdg-${Date.now()}.png`; a.click();
 }
 
 /* ---- SVG export ---- */
@@ -1000,7 +1073,7 @@ function makeSVGRecorder(){
     fill(){ if(d) els.push(`<path d="${d}" fill="${colorRef(st.fill)}"${st.alpha<1?` fill-opacity="${st.alpha}"`:''}/>`); },
     fillRect(x,y,w,h){ els.push(`<rect x="${F(x)}" y="${F(y)}" width="${F(w)}" height="${F(h)}" fill="${colorRef(st.fill)}"${st.alpha<1?` fill-opacity="${st.alpha}"`:''}/>`); },
     strokeRect(x,y,w,h){ els.push(`<rect x="${F(x)}" y="${F(y)}" width="${F(w)}" height="${F(h)}" fill="none" stroke="${colorRef(st.stroke)}" stroke-width="${F(st.width)}"/>`); },
-    clearRect(){}, fillText(){}, strokeText(){}, measureText(){ return {width:0}; }, setLineDash(){},
+    clearRect(){}, fillText(){}, strokeText(){}, measureText(){ return {width:0}; }, setLineDash(){}, drawImage(){},
     createLinearGradient(x0,y0,x1,y1){ return {__grad:true,x0,y0,x1,y1,stops:[],addColorStop(o,c){ this.stops.push({o,c}); }}; },
     set strokeStyle(v){ st.stroke=v; }, get strokeStyle(){ return st.stroke; },
     set fillStyle(v){ st.fill=v; }, get fillStyle(){ return st.fill; },
@@ -1015,100 +1088,34 @@ function makeSVGRecorder(){
   };
   return { ctx, defs:()=>defs.join(''), body:()=>els.join('') };
 }
-function paramSVG(d,R,w,h){
-  let defs='', body='', strokeRef=style.color1; const sw=style.width, op=style.opacity, opAttr=op<1?` stroke-opacity="${op}"`:'';
-  if(style.palette==='gradient'){
-    defs=`<linearGradient id="grad" gradientUnits="userSpaceOnUse" x1="${F(-R)}" y1="${F(-R)}" x2="${F(R)}" y2="${F(R)}"><stop offset="0" stop-color="${style.color1}"/><stop offset="1" stop-color="${style.color2}"/></linearGradient>`;
-    strokeRef='url(#grad)';
-  }
-  if(d.type==='poly'){
-    let ds='M'+F(d.pts[0].x)+' '+F(d.pts[0].y);
-    for(let i=1;i<d.pts.length;i++) ds+='L'+F(d.pts[i].x)+' '+F(d.pts[i].y);
-    body=`<path d="${ds}" fill="none" stroke="${strokeRef}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"${opAttr}/>`;
-  } else if(style.palette==='gradient'){
-    body=d.segs.map((s,i)=>`<line x1="${F(s[0].x)}" y1="${F(s[0].y)}" x2="${F(s[1].x)}" y2="${F(s[1].y)}" stroke="${hexLerp(style.color1,style.color2,i/d.segs.length)}" stroke-width="${sw}" stroke-linecap="round"${opAttr}/>`).join('');
-  } else {
-    let ds=''; for(const s of d.segs) ds+='M'+F(s[0].x)+' '+F(s[0].y)+'L'+F(s[1].x)+' '+F(s[1].y);
-    body=`<path d="${ds}" fill="none" stroke="${strokeRef}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"${opAttr}/>`;
-  }
-  return svgDoc(F(w),F(h),style.bg, defs, `<g transform="translate(${F(w/2)} ${F(h/2)})">${body}</g>`);
-}
 function buildSVG(){
   const w=cv.width/dpr, h=cv.height/dpr;
-  if(mode==='code'){
-    const rec=makeSVGRecorder();
-    if(codeFn){ try{ codeFn(rec.ctx,w,h,anim.phase,Math.PI*2); }catch(e){ setCodeErr('SVG: '+e.message); } }
-    return svgDoc(F(w),F(h),style.bg, rec.defs(), rec.body());
-  }
-  const R=Math.min(w,h)*0.42;
-  return paramSVG(MODES[mode].build(params,anim.phase,R), R, w, h);
+  const rec=makeSVGRecorder();
+  if(codeFn){ try{ codeFn(rec.ctx,w,h,anim.phase,Math.PI*2); }catch(e){ setCodeErr('SVG: '+e.message); } }
+  return svgDoc(F(w),F(h),style.bg, rec.defs(), rec.body());
 }
 function saveSVG(){
   const blob=new Blob([buildSVG()],{type:'image/svg+xml'});
   const url=URL.createObjectURL(blob);
-  const a=el('a'); a.href=url; a.download=`mdg-${mode}-${Date.now()}.svg`; a.click();
+  const a=el('a'); a.href=url; a.download=`mdg-${Date.now()}.svg`; a.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 /* ---- UI ---- */
-const fmt=(v,c)=> c.int ? String(v) : (c.step<0.01 ? v.toFixed(3) : v.toFixed(2));
-function buildParams(){
-  const box=$('#params'); box.innerHTML='';
-  if(mode==='code'){ buildEditor(box); return; }
-  MODES[mode].controls.forEach(c=>{
-    const row=el('div','ctrl');
-    const lab=el('label'); lab.innerHTML=`${c.label} <span class="val"></span>`;
-    const out=lab.querySelector('.val'); out.textContent=fmt(params[c.k],c);
-    const inp=el('input'); inp.type='range'; inp.min=c.min; inp.max=c.max; inp.step=c.step; inp.value=params[c.k];
-    inp.addEventListener('input',()=>{ let v=parseFloat(inp.value); if(c.int) v=Math.round(v); params[c.k]=v; out.textContent=fmt(v,c); triggerDraw(); });
-    row.append(lab,inp); box.append(row);
-  });
-}
-function buildTabs(){
-  const box=$('#tabs'); box.innerHTML='';
-  const tabs=[['code','Code'],...Object.keys(MODES).map(k=>[k,MODES[k].label])];
-  for(const [m,label] of tabs){
-    const b=el('button'); b.textContent=label; if(m===mode) b.classList.add('on');
-    b.addEventListener('click',()=>{ switchMode(m); [...box.children].forEach(c=>c.classList.toggle('on',c===b)); });
-    box.append(b);
-  }
-}
-function switchMode(m){
-  mode=m;
-  if(m!=='code') params=store[m];
-  applyModeUI();
-  if(m==='code'){ anim.progress=1; anim.drawing=false; dirty=true; } else triggerDraw();
-}
-function applyModeUI(){
-  $('#colourSection').style.display = mode==='code' ? 'none' : '';
-  buildParams();
-}
 function syncStatic(){
-  $('#c1').value=style.color1; $('#c2').value=style.color2; $('#bg').value=style.bg;
-  $('#w').value=style.width; $('#wv').textContent=style.width.toFixed(1);
-  $('#op').value=style.opacity; $('#opv').textContent=style.opacity.toFixed(2);
-  $('#neon').checked=style.neon; $('#trails').checked=style.trails; $('#animate').checked=anim.animate;
-  $('#ds').value=anim.drawSpeed; $('#dsv').textContent=anim.drawSpeed.toFixed(1);
+  $('#animate').checked=anim.animate;
+  $('#trails').checked=style.trails;
   $('#es').value=anim.evolveSpeed; $('#esv').textContent=anim.evolveSpeed.toFixed(2);
-  [...$('#pal').children].forEach(b=>b.classList.toggle('on',b.dataset.pal===style.palette));
 }
 function wire(){
-  $('#rand').onclick=randomize; $('#replay').onclick=triggerDraw; $('#save').onclick=savePNG; $('#saveSvg').onclick=saveSVG;
-  $('#c1').oninput=e=>{ style.color1=e.target.value; dirty=true; };
-  $('#c2').oninput=e=>{ style.color2=e.target.value; dirty=true; };
-  $('#bg').oninput=e=>{ style.bg=e.target.value; dirty=true; };
-  $('#w').oninput=e=>{ style.width=parseFloat(e.target.value); $('#wv').textContent=style.width.toFixed(1); dirty=true; };
-  $('#op').oninput=e=>{ style.opacity=parseFloat(e.target.value); $('#opv').textContent=style.opacity.toFixed(2); dirty=true; };
-  $('#neon').onchange=e=>{ style.neon=e.target.checked; dirty=true; };
-  $('#trails').onchange=e=>{ style.trails=e.target.checked; dirty=true; };
+  $('#rand').onclick=pickRandom; $('#replay').onclick=replay; $('#save').onclick=savePNG; $('#saveSvg').onclick=saveSVG;
   $('#animate').onchange=e=>{ anim.animate=e.target.checked; dirty=true; };
-  $('#ds').oninput=e=>{ anim.drawSpeed=parseFloat(e.target.value); $('#dsv').textContent=anim.drawSpeed.toFixed(1); };
+  $('#trails').onchange=e=>{ style.trails=e.target.checked; dirty=true; };
   $('#es').oninput=e=>{ anim.evolveSpeed=parseFloat(e.target.value); $('#esv').textContent=anim.evolveSpeed.toFixed(2); };
-  [...$('#pal').children].forEach(b=>b.onclick=()=>{ style.palette=b.dataset.pal; [...$('#pal').children].forEach(x=>x.classList.toggle('on',x===b)); dirty=true; });
   window.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
-    if(e.code==='Space'){ e.preventDefault(); triggerDraw(); }
-    else if(e.key==='r'||e.key==='R') randomize();
+    if(e.code==='Space'){ e.preventDefault(); replay(); }
+    else if(e.key==='r'||e.key==='R') pickRandom();
     else if(e.key==='s'||e.key==='S') savePNG();
     else if(e.key==='v'||e.key==='V') saveSVG();
     else if(e.key==='a'||e.key==='A'){ anim.animate=!anim.animate; $('#animate').checked=anim.animate; dirty=true; }
@@ -1116,7 +1123,7 @@ function wire(){
 }
 
 /* ---- init ---- */
-buildTabs(); compileCode(); applyModeUI(); syncStatic(); wire(); resize();
+buildExamples(); compileCode(); buildEditor($('#editor')); refreshInfo(); syncStatic(); wire(); resize();
 requestAnimationFrame(loop);
 </script>
 </body>
