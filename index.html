@@ -563,8 +563,8 @@ const pad = Math.max(1, cell * 0.08);
 for (let y = 0; y < rows; y++)
   for (let x = 0; x < cols; x++)
     if (S.grid[y][x]) ctx.fillRect(x * cell + pad, y * cell + pad, cell - 2 * pad, cell - 2 * pad);`;
-const GOLDEN_RATIO_SKETCH =
-`// Golden Ratio — phyllotaxis: each seed sits one golden angle (137.5 deg) from the last.
+const SUNFLOWER_SKETCH =
+`// Sunflower — phyllotaxis: each seed sits one golden angle (137.5 deg) from the last.
 // Animate ON for a slow turn. ctx, w, h, t, TAU.
 
 const cx = w / 2, cy = h / 2;
@@ -587,6 +587,92 @@ for (let i = 1; i <= N; i++) {
   ctx.arc(x, y, dot, 0, TAU);
   ctx.fill();
 }`;
+const FIBONACCI_SKETCH =
+`// Fibonacci — the golden spiral from Fibonacci squares + quarter-circle arcs.
+// Animate ON for a slow turn. ctx, w, h, t, TAU.
+
+const fib = [1, 1, 2, 3, 5, 8, 13, 21, 34];
+const n = 8;
+
+// build the Fibonacci square tiling (math coords, y up)
+let minx = 0, miny = 0, maxx = 1, maxy = 1;
+const sq = [{ x0: 0, y0: 0, x1: 1, y1: 1, dir: 'S' }];
+const dn = ['L', 'U', 'R', 'D'];
+for (let i = 1; i <= n; i++) {
+  const s = fib[i], d = (i - 1) % 4;
+  let x0, y0;
+  if (d === 0) { x0 = minx - s; y0 = miny; minx -= s; }
+  else if (d === 1) { x0 = minx; y0 = maxy; maxy += s; }
+  else if (d === 2) { x0 = maxx; y0 = miny; maxx += s; }
+  else { x0 = minx; y0 = miny - s; miny -= s; }
+  sq.push({ x0: x0, y0: y0, x1: x0 + s, y1: y0 + s, dir: dn[d] });
+}
+
+// fit to a circle (rotation never clips); transform = rotate in math space then flip y to screen
+const bcx = (minx + maxx) / 2, bcy = (miny + maxy) / 2;
+let maxR = 1;
+for (let i = 0; i < sq.length; i++) {
+  const s = sq[i], cs = [[s.x0, s.y0], [s.x1, s.y0], [s.x1, s.y1], [s.x0, s.y1]];
+  for (let j = 0; j < 4; j++) maxR = Math.max(maxR, Math.hypot(cs[j][0] - bcx, cs[j][1] - bcy));
+}
+const scale = Math.min(w, h) * 0.46 / maxR;
+const rot = t * 0.08, cphi = Math.cos(rot), sphi = Math.sin(rot);
+const cx = w / 2, cy = h / 2;
+function T(mx, my) {
+  const dx = mx - bcx, dy = my - bcy;
+  return [cx + (dx * cphi - dy * sphi) * scale, cy - (dx * sphi + dy * cphi) * scale];
+}
+
+// corner helpers + the verified per-square pivot rule
+const C = { BL: s => [s.x0, s.y0], BR: s => [s.x1, s.y0], TR: s => [s.x1, s.y1], TL: s => [s.x0, s.y1] };
+const ADJ = { BL: ['BR', 'TL'], BR: ['BL', 'TR'], TR: ['BR', 'TL'], TL: ['BL', 'TR'] };
+const PIV = { S: 'TL', L: 'TR', U: 'BR', R: 'BL', D: 'TL' };
+function arcPts(s) {
+  const pk = PIV[s.dir], P = C[pk](s), r = s.x1 - s.x0;
+  const A = C[ADJ[pk][0]](s), B = C[ADJ[pk][1]](s);
+  let a0 = Math.atan2(A[1] - P[1], A[0] - P[0]), a1 = Math.atan2(B[1] - P[1], B[0] - P[0]);
+  let dd = a1 - a0; while (dd > Math.PI) dd -= TAU; while (dd < -Math.PI) dd += TAU;
+  const pts = [], M = 22;
+  for (let k = 0; k <= M; k++) { const a = a0 + dd * k / M; pts.push([P[0] + r * Math.cos(a), P[1] + r * Math.sin(a)]); }
+  return pts;
+}
+const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+
+// faint squares
+ctx.lineJoin = 'miter'; ctx.lineCap = 'butt';
+ctx.strokeStyle = 'hsla(0, 0%, 100%, 0.14)';
+ctx.lineWidth = 1;
+ctx.beginPath();
+for (let i = 0; i < sq.length; i++) {
+  const s = sq[i], a = T(s.x0, s.y0), b = T(s.x1, s.y0), c = T(s.x1, s.y1), d = T(s.x0, s.y1);
+  ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.lineTo(d[0], d[1]); ctx.lineTo(a[0], a[1]);
+}
+ctx.stroke();
+
+// stitch the quarter-arcs into one continuous spiral, then draw it in gold
+let spiral;
+{
+  let a = arcPts(sq[0]); const b = arcPts(sq[1]);
+  const eN = a[a.length - 1], eF = a[0];
+  const dNo = Math.min(dist(eN, b[0]), dist(eN, b[b.length - 1]));
+  const dFl = Math.min(dist(eF, b[0]), dist(eF, b[b.length - 1]));
+  spiral = dFl < dNo ? a.reverse() : a;
+}
+for (let i = 1; i <= n; i++) {
+  let a = arcPts(sq[i]);
+  const tail = spiral[spiral.length - 1];
+  if (dist(tail, a[a.length - 1]) < dist(tail, a[0])) a = a.reverse();
+  spiral = spiral.concat(a.slice(1));
+}
+ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+ctx.strokeStyle = 'hsla(45, 90%, 62%, 0.95)';
+ctx.lineWidth = 2.2;
+ctx.beginPath();
+for (let i = 0; i < spiral.length; i++) {
+  const p = T(spiral[i][0], spiral[i][1]);
+  if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
+}
+ctx.stroke();`;
 const SKETCHES = [
   { name: 'Doors',          code: WALK_SKETCH },
   { name: 'Side Doors',     code: SIDE_DOORS_SKETCH },
@@ -595,7 +681,8 @@ const SKETCHES = [
   { name: 'Sound Waves',    code: SOUND_WAVES_SKETCH },
   { name: "Metatron's Cube",code: METATRON_SKETCH },
   { name: 'Grid of Life',   code: GRID_OF_LIFE_SKETCH },
-  { name: 'Golden Ratio',   code: GOLDEN_RATIO_SKETCH },
+  { name: 'Sunflower',      code: SUNFLOWER_SKETCH },
+  { name: 'Fibonacci',      code: FIBONACCI_SKETCH },
 ];
 const CODE_KEY='spiroloom.sketch';
 let codeText = (function(){ try{ return localStorage.getItem(CODE_KEY) || WALK_SKETCH; }catch(e){ return WALK_SKETCH; } })(), codeFn = null;
