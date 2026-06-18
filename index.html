@@ -563,8 +563,8 @@ const pad = Math.max(1, cell * 0.08);
 for (let y = 0; y < rows; y++)
   for (let x = 0; x < cols; x++)
     if (S.grid[y][x]) ctx.fillRect(x * cell + pad, y * cell + pad, cell - 2 * pad, cell - 2 * pad);`;
-const SUNFLOWER_SKETCH =
-`// Sunflower — phyllotaxis: each seed sits one golden angle (137.5 deg) from the last.
+const PHYLLOTAXIS_SKETCH =
+`// Phyllotaxis (sunflower) — each seed sits one golden angle (137.5 deg) from the last.
 // Animate ON for a slow turn. ctx, w, h, t, TAU.
 
 const cx = w / 2, cy = h / 2;
@@ -673,16 +673,178 @@ for (let i = 0; i < spiral.length; i++) {
   if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]);
 }
 ctx.stroke();`;
+const LISSAJOUS_SKETCH =
+`// Lissajous — the classic table of x=sin(a*th + d), y=sin(b*th) curves.
+// Animate ON to sweep the phase. ctx, w, h, t, TAU.
+
+const g = 5;
+const cellW = w / g, cellH = h / g;
+const rad = Math.min(cellW, cellH) * 0.40;
+const delta = t * 0.5, steps = 200;
+ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+ctx.lineWidth = 1.4;
+ctx.strokeStyle = 'hsla(0, 0%, 100%, 0.9)';
+for (let row = 0; row < g; row++) {
+  for (let col = 0; col < g; col++) {
+    const a = col + 1, b = row + 1;
+    const ox = cellW * (col + 0.5), oy = cellH * (row + 0.5);
+    ctx.beginPath();
+    for (let k = 0; k <= steps; k++) {
+      const th = k / steps * TAU;
+      const x = ox + Math.sin(a * th + delta) * rad;
+      const y = oy + Math.sin(b * th) * rad;
+      if (k === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}`;
+const LORENZ_SKETCH =
+`// Lorenz Attractor — the butterfly of chaos (sigma 10, rho 28, beta 8/3).
+// Animate ON to rotate the view. ctx, w, h, t, TAU.
+
+const sigma = 10, rho = 28, beta = 8 / 3, dt = 0.006;
+let x = 0.1, y = 0, z = 0;
+for (let i = 0; i < 400; i++) {                 // warm-up: skip the fly-in from origin
+  const ddx = sigma * (y - x), ddy = x * (rho - z) - y, ddz = x * y - beta * z;
+  x += ddx * dt; y += ddy * dt; z += ddz * dt;
+}
+const rot = t * 0.25, cr = Math.cos(rot), sr = Math.sin(rot);
+const sc = Math.min(w, h) / 62, cx = w / 2, cy = h / 2;
+ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+ctx.strokeStyle = 'hsla(190, 80%, 68%, 0.85)';
+ctx.lineWidth = 1;
+ctx.beginPath();
+for (let i = 0; i < 5200; i++) {
+  const ddx = sigma * (y - x), ddy = x * (rho - z) - y, ddz = x * y - beta * z;
+  x += ddx * dt; y += ddy * dt; z += ddz * dt;
+  const px = cx + (x * cr - y * sr) * sc;
+  const py = cy + (z - 25) * sc;
+  if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+}
+ctx.stroke();`;
+const HILBERT_SKETCH =
+`// Hilbert Curve — a space-filling fractal (order 6). ctx, w, h, t, TAU.
+
+const order = 6;
+const m = Math.min(w, h) * 0.86;
+const ox = w / 2 - m / 2, oy = h / 2 - m / 2;
+const pts = [];
+function hil(x, y, xi, xj, yi, yj, n) {
+  if (n <= 0) { pts.push([x + (xi + yi) / 2, y + (xj + yj) / 2]); return; }
+  hil(x, y, yi / 2, yj / 2, xi / 2, xj / 2, n - 1);
+  hil(x + xi / 2, y + xj / 2, xi / 2, xj / 2, yi / 2, yj / 2, n - 1);
+  hil(x + xi / 2 + yi / 2, y + xj / 2 + yj / 2, xi / 2, xj / 2, yi / 2, yj / 2, n - 1);
+  hil(x + xi / 2 + yi, y + xj / 2 + yj, -yi / 2, -yj / 2, -xi / 2, -xj / 2, n - 1);
+}
+hil(ox, oy, m, 0, 0, m, order);
+ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+ctx.strokeStyle = 'hsla(0, 0%, 100%, 0.9)';
+ctx.lineWidth = 1.3;
+ctx.beginPath();
+for (let i = 0; i < pts.length; i++) { const p = pts[i]; if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }
+ctx.stroke();`;
+const KOCH_SKETCH =
+`// Koch Snowflake — the classic fractal curve (depth 4). Animate ON for a slow turn.
+// ctx, w, h, t, TAU.
+
+const depth = 4;
+const R = Math.min(w, h) * 0.42;
+const cx = w / 2, cy = h / 2, rot = t * 0.1;
+let pts = [];
+for (let k = 0; k < 3; k++) { const ang = -Math.PI / 2 + k * TAU / 3 + rot; pts.push([cx + Math.cos(ang) * R, cy + Math.sin(ang) * R]); }
+pts.push(pts[0]);
+for (let d = 0; d < depth; d++) {
+  const np = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const A = pts[i], B = pts[i + 1];
+    const dx = (B[0] - A[0]) / 3, dy = (B[1] - A[1]) / 3;
+    const p1 = [A[0] + dx, A[1] + dy], p2 = [A[0] + 2 * dx, A[1] + 2 * dy];
+    const vx = p2[0] - p1[0], vy = p2[1] - p1[1];
+    const c1 = [p1[0] + vx * 0.5 - vy * 0.8660254, p1[1] + vx * 0.8660254 + vy * 0.5];
+    const c2 = [p1[0] + vx * 0.5 + vy * 0.8660254, p1[1] - vx * 0.8660254 + vy * 0.5];
+    const apex = (Math.hypot(c1[0] - cx, c1[1] - cy) > Math.hypot(c2[0] - cx, c2[1] - cy)) ? c1 : c2;
+    np.push(A, p1, apex, p2);
+  }
+  np.push(pts[pts.length - 1]);
+  pts = np;
+}
+ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+ctx.strokeStyle = 'hsla(195, 45%, 86%, 0.92)';
+ctx.lineWidth = 1.3;
+ctx.beginPath();
+for (let i = 0; i < pts.length; i++) { const p = pts[i]; if (i === 0) ctx.moveTo(p[0], p[1]); else ctx.lineTo(p[0], p[1]); }
+ctx.stroke();`;
+const PRIME_SPIRAL_SKETCH =
+`// Prime Spiral (Ulam) — integers on a square spiral; primes lit up. ctx, w, h, t, TAU.
+
+const N = 3000;
+const cell = Math.max(4, Math.round(Math.min(w, h) / 92));
+const prime = new Array(N + 1).fill(true);
+prime[0] = prime[1] = false;
+for (let i = 2; i * i <= N; i++) if (prime[i]) for (let j = i * i; j <= N; j += i) prime[j] = false;
+const cx = w / 2, cy = h / 2;
+let x = 0, y = 0, dx = 1, dy = 0, segLen = 1, segRem = 1, turns = 0;
+ctx.fillStyle = 'hsla(0, 0%, 100%, 0.9)';
+for (let v = 1; v <= N; v++) {
+  if (prime[v]) {
+    const px = cx + x * cell, py = cy - y * cell;
+    if (px > -cell && px < w + cell && py > -cell && py < h + cell) { ctx.beginPath(); ctx.arc(px, py, cell * 0.36, 0, TAU); ctx.fill(); }
+  }
+  x += dx; y += dy; segRem--;
+  if (segRem === 0) { const ndx = -dy, ndy = dx; dx = ndx; dy = ndy; turns++; if (turns % 2 === 0) segLen++; segRem = segLen; }
+}`;
+const PYTHAGORAS_SKETCH =
+`// Pythagoras Tree — recursive squares branching like a tree; sways with t.
+// Animate ON for wind. ctx, w, h, t, TAU.
+
+const depth = 9;
+const base = Math.min(w, h) * 0.12;
+const baseY = h * 0.94;
+let level = [[[w / 2 - base / 2, baseY], [w / 2 + base / 2, baseY]]];
+const alpha = Math.PI / 4 + Math.sin(t * 0.8) * 0.18;
+const ca = Math.cos(alpha), sa = Math.sin(alpha);
+const rot = (px, py, c, s) => [px * c - py * s, px * s + py * c];
+ctx.lineJoin = 'round';
+for (let d = 0; d <= depth; d++) {
+  const f = d / depth;
+  ctx.fillStyle = 'hsla(' + (28 + f * 92) + ', 55%, ' + (28 + f * 26) + '%, 0.92)';
+  ctx.beginPath();
+  const next = [];
+  for (let s = 0; s < level.length; s++) {
+    const A = level[s][0], B = level[s][1];
+    const vx = B[0] - A[0], vy = B[1] - A[1];
+    const ux = vy, uy = -vx;
+    const C = [B[0] + ux, B[1] + uy], D = [A[0] + ux, A[1] + uy];
+    ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.lineTo(C[0], C[1]); ctx.lineTo(D[0], D[1]); ctx.lineTo(A[0], A[1]);
+    if (d < depth) {
+      const ex = C[0] - D[0], ey = C[1] - D[1];
+      const r1 = rot(ex, ey, ca, sa), r2 = rot(ex, ey, ca, -sa);
+      const ap1 = [D[0] + ca * r1[0], D[1] + ca * r1[1]];
+      const ap2 = [D[0] + ca * r2[0], D[1] + ca * r2[1]];
+      const mx = (A[0] + B[0] + C[0] + D[0]) / 4, my = (A[1] + B[1] + C[1] + D[1]) / 4;
+      const apex = (Math.hypot(ap1[0] - mx, ap1[1] - my) > Math.hypot(ap2[0] - mx, ap2[1] - my)) ? ap1 : ap2;
+      next.push([D, apex]); next.push([apex, C]);
+    }
+  }
+  ctx.fill();
+  level = next;
+}`;
 const SKETCHES = [
-  { name: 'Doors',          code: WALK_SKETCH },
-  { name: 'Side Doors',     code: SIDE_DOORS_SKETCH },
-  { name: 'Turning Hall',   code: TURNING_HALL_SKETCH },
-  { name: 'Swinging Doors', code: SWINGING_DOORS_SKETCH },
-  { name: 'Sound Waves',    code: SOUND_WAVES_SKETCH },
-  { name: "Metatron's Cube",code: METATRON_SKETCH },
-  { name: 'Grid of Life',   code: GRID_OF_LIFE_SKETCH },
-  { name: 'Sunflower',      code: SUNFLOWER_SKETCH },
-  { name: 'Fibonacci',      code: FIBONACCI_SKETCH },
+  { name: 'Doors',           code: WALK_SKETCH },
+  { name: 'Side Doors',      code: SIDE_DOORS_SKETCH },
+  { name: 'Turning Hall',    code: TURNING_HALL_SKETCH },
+  { name: 'Swinging Doors',  code: SWINGING_DOORS_SKETCH },
+  { name: 'Sound Waves',     code: SOUND_WAVES_SKETCH },
+  { name: "Metatron's Cube", code: METATRON_SKETCH },
+  { name: 'Grid of Life',    code: GRID_OF_LIFE_SKETCH },
+  { name: 'Phyllotaxis',     code: PHYLLOTAXIS_SKETCH },
+  { name: 'Fibonacci',       code: FIBONACCI_SKETCH },
+  { name: 'Lissajous',       code: LISSAJOUS_SKETCH },
+  { name: 'Lorenz Attractor',code: LORENZ_SKETCH },
+  { name: 'Hilbert Curve',   code: HILBERT_SKETCH },
+  { name: 'Koch Snowflake',  code: KOCH_SKETCH },
+  { name: 'Prime Spiral',    code: PRIME_SPIRAL_SKETCH },
+  { name: 'Pythagoras Tree', code: PYTHAGORAS_SKETCH },
 ];
 const CODE_KEY='spiroloom.sketch';
 let codeText = (function(){ try{ return localStorage.getItem(CODE_KEY) || WALK_SKETCH; }catch(e){ return WALK_SKETCH; } })(), codeFn = null;
